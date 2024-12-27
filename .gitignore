@@ -1,0 +1,6 @@
+build
+_deps
+CMakeFiles
+generated
+pico-sdk
+wifi.h
