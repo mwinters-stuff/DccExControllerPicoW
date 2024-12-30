@@ -1,12 +1,29 @@
 #ifndef DCC_EX_CONTROLLER_STATIC_H
 #define DCC_EX_CONTROLLER_STATIC_H
-#include <string>
 
+#include <string>
 #include "actions.h"
 
 const std::string appName = "DccExController";
 const std::string appVersion = "              v0.22";
 
+// #define debug_print printf
+// #define debug_println(x) printf("%s\n", x)
+
+#ifndef DCCEXCONTROLLER_DEBUG 
+  #define DCCEXCONTROLLER_DEBUG    0
+#endif
+
+
+#if DCCEXCONTROLLER_DEBUG == 0
+ #define debug_print(params...) printf(params)
+ #define debug_println(params...) printf(params); printf("\n")
+ #define debug_printf(params...) printf(params)
+#else
+ #define debug_print(...)
+ #define debug_println(...)
+ #define debug_printf(...)
+#endif
 
 #ifndef MENU_TEXT_MENU
    #define MENU_TEXT_MENU                      "* Menu                # Key Defs"
@@ -240,9 +257,11 @@ const int glyph_speed_step = 0x00d6;
 
 #define CMD_FUNCTION 0
 
-#define MAX_LOCOS     10  // maximum number of locos that can be added to the consist
+// maximum number of locos that can be added to the consist
+#define MAX_LOCOS 10
 
-#define MAX_FUNCTIONS 32
+#define FUNCTION_STATES 6
+#define MAX_STATE_FUNCTS 32
 
 #define MENU_ITEM_FUNCTION '0'
 #define MENU_ITEM_ADD_LOCO '1'
@@ -471,9 +490,6 @@ const char ssidPasswordBlankChar = 164;
 
 // *******************************************************************************************************************
 
-#ifndef DCCEXCONTROLLER_DEBUG 
-  #define DCCEXCONTROLLER_DEBUG    0
-#endif
 
 #ifndef DCCEXPROTOCOL_DEBUG
   #define DCCEXPROTOCOL_DEBUG   1
@@ -553,28 +569,6 @@ const char ssidPasswordBlankChar = 164;
 #ifndef ENCODER_BUTTON_ACTION
     #define ENCODER_BUTTON_ACTION SPEED_STOP_THEN_TOGGLE_DIRECTION  // default if not defined in config_buttons.h
 #endif
-
-// *******************************************************************************************************************
-// OLED
-
-// #ifdef U8X8_HAVE_HW_SPI
-//     #include <SPI.h>                       // add to include path [Arduino install]\hardware\arduino\avr\libraries\SPI\src
-// #endif
-// #ifdef U8X8_HAVE_HW_I2C
-//     #include <Wire.h>                      // add to include path [Arduino install]\hardware\arduino\avr\libraries\Wire\src
-// #endif
-
-// U8g2 Constructor List (Frame Buffer)
-// you can overide this in config_buttons.h     DO NOT CHANGE IT HERE
-// #ifndef OLED_TYPE
-//     U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ 22, /* data=*/ 23);
-// #else
-//     OLED_TYPE
-// #endif
-
-// *******************************************************************************************************************
-// additional / optional commands
-//  these can be any legitimate DCC-EX Native protocol command
 
 #ifndef CUSTOM_COMMAND_1
    #define CUSTOM_COMMAND_1 ""
@@ -695,14 +689,5 @@ const char ssidPasswordBlankChar = 164;
    #define USE_BATTERY_SLEEP_AT_PERCENT 3
 #endif
 
-
-// ***************************************************
-//  ESPmDNS problem
-
-// #if ESP_IDF_VERSION_MAJOR < 5
-//   #define ESPMDNS_IP_ATTRIBUTE_NAME MDNS.IP(i)
-// #else
-//   #define ESPMDNS_IP_ATTRIBUTE_NAME MDNS.address(i)
-// #endif
 
 #endif

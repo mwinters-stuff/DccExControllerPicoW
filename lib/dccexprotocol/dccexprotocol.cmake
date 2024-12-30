@@ -1,13 +1,8 @@
 add_library(dccexprotocol INTERFACE)
 
-target_sources(dccexprotocol INTERFACE
-  ${CMAKE_CURRENT_LIST_DIR}/DCCEXInbound.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/DCCEXLoco.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/DCCEXProtocol.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/DCCEXRoutes.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/DCCEXTurnouts.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/DCCEXTurntables.cpp
-)
+file(GLOB SOURCES "*.c" "*.cpp")
+
+target_sources(dccexprotocol INTERFACE ${SOURCES})
 
 target_include_directories(dccexprotocol INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 

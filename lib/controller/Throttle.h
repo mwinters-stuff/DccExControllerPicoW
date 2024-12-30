@@ -1,3 +1,6 @@
+#ifndef _THROTTLE_H
+#define _THROTTLE_H
+
 #include <DCCEXProtocol.h> 
 
 
@@ -27,3 +30,5 @@ private:
   DCCExController::Consist* _consist;
 
 };
+
+#endif

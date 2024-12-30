@@ -1,14 +1,13 @@
-// BatteryTest.h
-#ifndef BATTERYTEST_H
-#define BATTERYTEST_H
+#ifndef _BATTERYTEST_H
+#define _BATTERYTEST_H
 
-#include <Arduino.h>
 
 class BatteryTest {
 public:
     BatteryTest(int testPin);
     void begin();
-    void checkBatteryLevel();
+    bool isBatteryLow();
+    void loop();
     int getBatteryLevel();
     void displayBatteryStatus();
 

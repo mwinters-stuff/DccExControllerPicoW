@@ -5,47 +5,51 @@
 #include "BatteryTest.h"
 #include "KeypadManager.h"
 #include "AdditionalButtons.h"
-#include "DCCEXProtocolDelegate.h"
+// #include "DCCEXProtocolDelegate.h"
 
 // Constructor
-DccExController::DccExController() {
-    // Initialize components
-    wifiManager = new WiFiManager();
-    oledDisplay = new OledDisplay();
-    rotaryEncoder = new RotaryEncoder();
-    batteryTest = new BatteryTest();
-    keypadManager = new KeypadManager();
-    additionalButtons = new AdditionalButtons();
-}
+// DccExController::DccExController() {
+//     // Initialize components
+//     wifiManager = new WiFiManager();
+//     oledDisplay = new OledDisplay();
+//     rotaryEncoder = new RotaryEncoder();
+//     batteryTest = new BatteryTest();
+//     keypadManager = new KeypadManager();
+//     additionalButtons = new AdditionalButtons();
+// }
 
-// Destructor
-DccExController::~DccExController() {
-    delete wifiManager;
-    delete oledDisplay;
-    delete rotaryEncoder;
-    delete batteryTest;
-    delete keypadManager;
-    delete additionalButtons;
-}
+// // Destructor
+// DccExController::~DccExController() {
+//     delete wifiManager;
+//     delete oledDisplay;
+//     delete rotaryEncoder;
+//     delete batteryTest;
+//     delete keypadManager;
+//     delete additionalButtons;
+// }
 
 // Setup method
 void DccExController::setup() {
-    wifiManager->setup();
-    oledDisplay->setup();
-    rotaryEncoder->setup();
-    batteryTest->setup();
-    keypadManager->setup();
-    additionalButtons->setup();
+//     wifiManager->setup();
+//     oledDisplay->setup();
+//     rotaryEncoder->setup();
+//     batteryTest->setup();
+//     keypadManager->setup();
+//     additionalButtons->setup();
 }
 
-// Main loop
+// // Main loop
 void DccExController::loop() {
-    wifiManager->loop();
-    oledDisplay->loop();
-    rotaryEncoder->loop();
-    batteryTest->loop();
-    keypadManager->loop();
-    additionalButtons->loop();
+    // wifiManager->loop();
+    // oledDisplay->loop();
+    // rotaryEncoder->loop();
+    // batteryTest->loop();
+    // keypadManager->loop();
+    // additionalButtons->loop();
+}
+
+void DccExController::selectRoster(int index){
+
 }
 
 void DccExController::selectTurnoutList(int index, bool state) {
@@ -61,6 +65,7 @@ void DccExController::selectTurnoutList(int index, bool state) {
     }
     writeOledSpeed();
     keypadUseType = KEYPAD_USE_OPERATION;
+  }
 }
 
 void DccExController::selectRouteList(int index) {
@@ -78,7 +83,7 @@ void DccExController::selectRouteList(int index) {
 void DccExController::selectFunctionList(int index) {
       debug_print("selectFunctionList() "); debug_println(selection);
 
-  if ((selection>=0) && (selection < MAX_FUNCTIONS)) {
+  if ((selection>=0) && (selection < MAX_STATE_FUNCTS)) {
     String function = functionLabels[currentThrottleIndex][selection];
     debug_print("Function Selected: "); debug_println(function);
     doFunction(currentThrottleIndex, selection, true);
@@ -205,3 +210,15 @@ int DccExController::getMultiThrottleIndex(char throttleChar) {
         return 0;
     }
 }
+
+void DccExController::powerToggle() {
+    // Implementation for toggling power
+}
+
+void DccExController::powerOn() {
+    // Implementation for turning power on
+}
+
+void DccExController::powerOff() {
+    // Implementation for turning power off
+} 

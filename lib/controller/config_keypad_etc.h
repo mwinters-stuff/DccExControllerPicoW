@@ -1,7 +1,8 @@
 #ifndef CONFIG_KEYPAD_ETC_H
 #define CONFIG_KEYPAD_ETC_H
 
-#include <pico_keypad.hpp>
+#include <button.hpp>
+
 #define INPUT_PULLUP true
 //
 // DO NOT alter this file
@@ -53,11 +54,6 @@
 #endif
 
 
-char keys[ROW_NUM][COLUMN_NUM] = {KEYPAD_KEYS};
-uint8_t pin_rows[ROW_NUM]      = KEYPAD_ROW_PINS; // GIOP19, GIOP18, GIOP5, GIOP17 connect to the row pins
-uint8_t pin_column[COLUMN_NUM] = KEYPAD_COLUMN_PINS;   // GIOP16, GIOP4, GIOP0 connect to the column pins
-
-PicoKeypad keypad = PicoKeypad( MAKE_KEYMAP(keys), pin_rows, pin_column, ROW_NUM, COLUMN_NUM );
 
 #ifndef KEYPAD_DEBOUNCE_TIME
     #define KEYPAD_DEBOUNCE_TIME 10
@@ -68,7 +64,6 @@ PicoKeypad keypad = PicoKeypad( MAKE_KEYMAP(keys), pin_rows, pin_column, ROW_NUM
 
 // *******************************************************************************************************************
 // additional / optional buttons hardware
-
 // To use the additional buttons, adjust the functions assigned to them in config_buttons.h
 #ifndef MAX_ADDITIONAL_BUTTONS
     #define MAX_ADDITIONAL_BUTTONS 7  // If you alter this number, you must also alter the additionalButtonActions array in WiTcontroller.ino
@@ -76,13 +71,16 @@ PicoKeypad keypad = PicoKeypad( MAKE_KEYMAP(keys), pin_rows, pin_column, ROW_NUM
 #ifndef ADDITIONAL_BUTTONS_PINS
     #define ADDITIONAL_BUTTONS_PINS      {5,15,25,26,27,32,33}
 #endif
+
+using namespace pimoroni;
+
 #ifndef ADDITIONAL_BUTTONS_TYPE
-    #define ADDITIONAL_BUTTONS_TYPE      {INPUT_PULLUP,INPUT_PULLUP,INPUT_PULLUP,INPUT_PULLUP,INPUT_PULLUP,INPUT_PULLUP,INPUT_PULLUP}
+    #define ADDITIONAL_BUTTONS_TYPE      {Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW}
    // 34,35,36,39 don't have an internal pullup
 #endif
 
-int additionalButtonPin[MAX_ADDITIONAL_BUTTONS] =          ADDITIONAL_BUTTONS_PINS;
-int additionalButtonType[MAX_ADDITIONAL_BUTTONS] =         ADDITIONAL_BUTTONS_TYPE;
+uint additionalButtonPin[MAX_ADDITIONAL_BUTTONS] =          ADDITIONAL_BUTTONS_PINS;
+Polarity additionalButtonType[MAX_ADDITIONAL_BUTTONS] =         ADDITIONAL_BUTTONS_TYPE;
 
 
 #ifndef ADDITIONAL_BUTTON_DEBOUNCE_DELAY

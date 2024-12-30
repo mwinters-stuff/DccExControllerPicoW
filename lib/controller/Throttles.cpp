@@ -1,9 +1,14 @@
-#include "Throttles.h"
-#include "Throttle.h"
 #include <pico/stdlib.h>
 
-#define debug_print printf
-#define debug_println(x) printf("%s\n", x)
+#include "Throttles.h"
+#include "Throttle.h"
+#include "FunctionStates.h"
+#include "GlobalValues.h"
+#include "OledDisplay.h"
+#include "static.h"
+
+// #define debug_print printf
+// #define debug_println(x) printf("%s\n", x)
 
 
 std::string Throttles::getDisplayLocoString(int multiThrottleIndex, int index) {
@@ -19,16 +24,17 @@ std::string Throttles::getDisplayLocoString(int multiThrottleIndex, int index) {
 }
 
 void Throttles::releaseAllLocos(int multiThrottleIndex) {
+  FunctionStates &functionStates = FunctionStates::getInstance();
   if (throttles[currentThrottleIndex]->getLocoCount() > 0) {
     throttles[currentThrottleIndex]->removeAllLocos();
-    _functionStates->resetFunctionLabels(multiThrottleIndex);
+    functionStates.resetFunctionLabels(multiThrottleIndex);
   }
 }
 
 void Throttles::releaseOneLoco(int multiThrottleIndex, int address) {
-  debug_print("releaseOneLoco(): "); debug_print(std::to_string(multiThrottleIndex).c_str()); debug_print(": "); debug_println(address);
+  debug_print("releaseOneLoco(): "); debug_print(std::to_string(multiThrottleIndex).c_str()); debug_print(": "); debug_println(std::to_string(address).c_str());
   throttles[currentThrottleIndex]->removeLoco(address);
-  _functionStates->resetFunctionLabels(multiThrottleIndex);
+  FunctionStates::getInstance().resetFunctionLabels(multiThrottleIndex);
   debug_println("releaseOneLoco(): end"); 
 }
 
@@ -57,7 +63,7 @@ void Throttles::speedEstopCurrentLoco() {
 void Throttles::speedDown(int multiThrottleIndex, int amt) {
   if (throttles[currentThrottleIndex]->getLocoCount() > 0) {
     int newSpeed = currentSpeed[multiThrottleIndex] - amt;
-    debug_print("Speed Down: "); debug_println(amt);
+    debug_print("Speed Down: "); debug_println(std::to_string(amt).c_str());
     speedSet(multiThrottleIndex, newSpeed);
   }
 }
@@ -65,7 +71,7 @@ void Throttles::speedDown(int multiThrottleIndex, int amt) {
 void Throttles::speedUp(int multiThrottleIndex, int amt) {
   if (throttles[currentThrottleIndex]->getLocoCount() > 0) {
     int newSpeed = currentSpeed[multiThrottleIndex] + amt;
-    debug_print("Speed Up: "); debug_println(amt);
+    debug_print("Speed Up: "); debug_println(std::to_string(amt).c_str());
     speedSet(multiThrottleIndex, newSpeed);
   }
 }
@@ -81,11 +87,11 @@ void Throttles::speedSet(int multiThrottleIndex, int amt) {
     if (newSpeed <0) { newSpeed = 0; }
     throttles[multiThrottleIndex]->setSpeed(newSpeed);
     currentSpeed[multiThrottleIndex] = newSpeed;
-    debug_print("Speed Set: "); debug_println(newSpeed);
+    debug_print("Speed Set: "); debug_println(std::to_string(newSpeed).c_str());
     debugLocoSpeed("setspeed() first loco in consist: ", throttles[currentThrottleIndex]->getFirst()->getLoco());
 
     // used to avoid bounce
-    lastSpeedSentTime = millis();
+    lastSpeedSentTime = pimoroni::millis();
     lastSpeedSent = newSpeed;
     // lastDirectionSent = -1;
     lastSpeedThrottleIndex = multiThrottleIndex;
@@ -119,7 +125,7 @@ int Throttles::getDisplaySpeed(int multiThrottleIndex) {
 }
 
 void Throttles::toggleLocoFacing(int multiThrottleIndex, int address) {
-  debug_print("toggleLocoFacing(): "); debug_println(address); 
+  debug_print("toggleLocoFacing(): "); debug_println(std::to_string(address).c_str()); 
   for (DCCExController::ConsistLoco* cl= throttles[currentThrottleIndex]->getFirst(); cl; cl=cl->getNext()) {
     if (cl->getLoco()->getAddress() == address) {
       if (cl->getFacing() == DCCExController::FacingForward) {
@@ -136,12 +142,13 @@ DCCExController::Facing Throttles::getLocoFacing(int multiThrottleIndex, int add
   return throttles[currentThrottleIndex]->getLocoFacing(address);
 }
 
-void Throttles::toggleAdditionalMultiplier(int speedStepCurrentMultiplier) {
+void Throttles::toggleAdditionalMultiplier() {
   // if (speedStep != currentSpeedStep) {
   //   currentSpeedStep = speedStep;
   // } else {
   //   currentSpeedStep = speedStep * speedStepAdditionalMultiplier;
   // }
+  auto speedStepCurrentMultiplier = Throttles::getInstance().speedStepCurrentMultiplier;
   switch (speedStepCurrentMultiplier) {
     case 1: 
       speedStepCurrentMultiplier = speedStepAdditionalMultiplier;
@@ -157,6 +164,7 @@ void Throttles::toggleAdditionalMultiplier(int speedStepCurrentMultiplier) {
   for (int i=0; i<maxThrottles; i++) {
     currentSpeedStep[i] = speedStep * speedStepCurrentMultiplier;
   }
+  Throttles::getInstance().speedStepCurrentMultiplier = speedStepCurrentMultiplier;
   // writeOledSpeed(); // TOOD: check if this is needed
 }
 
@@ -194,19 +202,21 @@ void Throttles::debugLocoSpeed(std::string txt, int locoId, DCCExController::Loc
   debug_println("");
 }
 
-
+// #define MAX_STATE_FUNCTIONS 32
 
 void Throttles::loadFunctionLabels(int multiThrottleIndex) {  // from Roster entry
   debug_println("loadFunctionLabels()");
+  GlobalValues &globalValues = GlobalValues::getInstance();
+  
   if (throttles[multiThrottleIndex]->getLocoCount() > 0) {
-    for (int i=0; i<MAX_FUNCTIONS; i++) {
+    for (int i=0; i<MAX_STATE_FUNCTS; i++) {
       const char* fName = throttles[multiThrottleIndex]->getFirst()->getLoco()->getFunctionName(i);
       bool fMomentary = throttles[multiThrottleIndex]->getFirst()->getLoco()->isFunctionMomentary(i);
       if (fName != nullptr) {
         // debug_print("loadFunctionLabels() "); 
         // debug_println(fName);
-        _functionStates->functionLabels[multiThrottleIndex][i] = fName;
-        _functionStates->functionMomentary[multiThrottleIndex][i] = fMomentary;
+        globalValues.functionLabels[multiThrottleIndex][i] = fName;
+        globalValues.functionMomentary[multiThrottleIndex][i] = fMomentary;
       // } else {
       //   debug_println("loadFunctionLabels() blank"); 
       }
@@ -215,3 +225,118 @@ void Throttles::loadFunctionLabels(int multiThrottleIndex) {  // from Roster ent
   debug_println("loadFunctionLabels() end"); 
 }
 
+void  Throttles::doDirectFunction(int multiThrottleIndex, int functionNumber, bool pressed) {
+  debug_print("doDirectFunction(): "); debug_print(std::to_string(multiThrottleIndex).c_str());  debug_print(" , "); debug_println(std::to_string(functionNumber).c_str());
+  if (throttles[currentThrottleIndex]->getLocoCount() > 0) {
+    debug_print("direct fn: "); debug_println(std::to_string(functionNumber).c_str()); debug_println( pressed ? " Pressed" : " Released");
+    doFunctionWhichLocosInConsist(multiThrottleIndex, functionNumber, pressed);
+    OledDisplay::getInstance().writeOledSpeed(); 
+  }
+  // debug_print("doDirectFunction(): end"); 
+}
+
+void  Throttles::doFunction(int multiThrottleIndex, int functionNumber, bool pressed) {   // currently ignoring the pressed value
+  debug_print("doFunction(): multiThrottleIndex "); debug_println(std::to_string(multiThrottleIndex).c_str());
+  if (throttles[currentThrottleIndex]->getLocoCount() > 0) {
+    doFunctionWhichLocosInConsist(multiThrottleIndex, functionNumber, true);
+    GlobalValues &globalValues = GlobalValues::getInstance();
+
+    if (!globalValues.functionStates[multiThrottleIndex][functionNumber]) {
+      debug_print("fn: "); debug_print(std::to_string(functionNumber).c_str()); debug_println(" Pressed");
+      // functionStates[functionNumber] = true;
+    } else {
+      sleep_ms(20);
+      doFunctionWhichLocosInConsist(multiThrottleIndex, functionNumber, false);
+      debug_print("fn: "); debug_print(std::to_string(functionNumber).c_str()); debug_println(" Released");
+      // functionStates[functionNumber] = false;
+    }
+    OledDisplay::getInstance().writeOledSpeed(); 
+  }
+  // debug_println("doFunction(): ");
+}
+
+// Work out which locos in a consist should get the function
+//
+void  Throttles::doFunctionWhichLocosInConsist(int multiThrottleIndex, int functionNumber, bool pressed) {
+  debug_print("doFunctionWhichLocosInConsist() multiThrottleIndex "); debug_print(std::to_string(multiThrottleIndex).c_str());
+  debug_print(" fn: "); debug_println(std::to_string(functionNumber).c_str());
+  GlobalValues &globalValues = GlobalValues::getInstance();
+
+  if (globalValues.functionFollow[multiThrottleIndex][functionNumber]==CONSIST_LEAD_LOCO) {
+    throttles[multiThrottleIndex]->setFunction(throttles[multiThrottleIndex]->getFirst()->getLoco(), functionNumber,pressed);
+  } else {  // at the momemnt the only other option in CONSIST_ALL_LOCOS
+    for (int i=0; i<throttles[multiThrottleIndex]->getLocoCount(); i++) {
+      throttles[multiThrottleIndex]->setFunction(throttles[multiThrottleIndex]->getLocoAtPosition(i)->getLoco(), functionNumber,pressed);
+    }
+  }
+  debug_println("doFunctionWhichLocosInConsist(): end fn: ");
+}
+
+void  Throttles::powerOnOff(DCCExController::TrackPower powerState) {
+  debug_println("powerOnOff()");
+  GlobalValues &globalValues = GlobalValues::getInstance();
+  DccExController &dccExController = DccExController::getInstance();
+  if (powerState == DCCExController::PowerOn) {
+    dccExController.powerOn();
+  } else {
+    dccExController.powerOff();
+  }
+  globalValues.trackPower = powerState;
+  OledDisplay::getInstance().writeOledSpeed();
+}
+
+void  Throttles::powerToggle() {
+  debug_println("PowerToggle()");
+  GlobalValues &globalValues = GlobalValues::getInstance();
+  if (globalValues.trackPower==DCCExController::PowerOn) {
+    powerOnOff(DCCExController::PowerOff);
+  } else {
+    powerOnOff(DCCExController::PowerOn);
+  }
+}
+
+void Throttles::nextThrottle() {
+  debug_print("nextThrottle(): "); 
+  int wasThrottle = currentThrottleIndex;
+  currentThrottleIndex++;
+  if (currentThrottleIndex >= maxThrottles) {
+    currentThrottleIndex = 0;
+  }
+  // currentThrottleIndexChar = getMultiThrottleChar(currentThrottleIndex);
+
+  if (currentThrottleIndex!=wasThrottle) {
+    OledDisplay::getInstance().writeOledSpeed();
+  }
+}
+
+void Throttles::changeNumberOfThrottles(bool increase) {
+  if (increase) {
+    maxThrottles++;
+    if (maxThrottles>6) maxThrottles = 6;   /// can't have more than 6
+  } else {
+    maxThrottles--;
+    if (maxThrottles<1) {   /// can't have less than 1
+      maxThrottles = 1;
+    } else {
+      releaseAllLocos(maxThrottles+1);
+      if (currentThrottleIndex>=maxThrottles) {
+        nextThrottle();
+      }
+    }
+  }
+  OledDisplay::getInstance().writeOledSpeed();
+}
+
+void Throttles::stopThenToggleDirection() {
+  if (throttles[currentThrottleIndex]->getLocoCount() > 0) {
+    if (currentSpeed[currentThrottleIndex] != 0) {
+      // dccexProtocol.setSpeed(currentThrottleIndexChar, 0);
+      speedSet(currentThrottleIndex,0);
+    } else {
+      if (TOGGLE_DIRECTION_ON_ENCODER_BUTTON_PRESSED_WHEN_STATIONAY){
+        toggleDirection(currentThrottleIndex);
+      }
+    }
+    currentSpeed[currentThrottleIndex] = 0;
+  }
+}

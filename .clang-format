@@ -1,0 +1,7 @@
+BasedOnStyle: Microsoft
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: false
+ColumnLimit: 0

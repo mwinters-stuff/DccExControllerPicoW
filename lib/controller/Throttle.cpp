@@ -2,15 +2,6 @@
 #include <DCCEXProtocol.h> 
 #include "Throttle.h"
 
-#if DCCEXCONTROLLER_DEBUG == 0
- #define debug_print(params...) printf(params)
- #define debug_println(params...) printf(params); printf(" ("); printf(millis()); printf(")\n")
- #define debug_printf(params...) printf(params)
-#else
- #define debug_print(...)
- #define debug_println(...)
- #define debug_printf(...)
-#endif
 
 using namespace DCCExController;
 

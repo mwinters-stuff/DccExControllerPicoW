@@ -216,8 +216,8 @@
 #define ROW_NUM     4
 #define COLUMN_NUM  4
 #define KEYPAD_KEYS {'1', '2', '3', 'A'},  {'4', '5', '6', 'B'},  {'7', '8', '9', 'C'},  {'*', '0', '#', 'D'}
-#define KEYPAD_ROW_PINS    {25, 33, 26, 27}
-#define KEYPAD_COLUMN_PINS {4, 5, 18, 19}
+#define KEYPAD_ROW_PINS    {6, 7, 8, 9}
+#define KEYPAD_COLUMN_PINS {10, 11, 12, 13}
 
 // in miliseconds
 // #define KEYPAD_DEBOUNCE_TIME 10

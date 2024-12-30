@@ -43,30 +43,17 @@ includeLibraries()
 
 add_subdirectory(lib)
 
+file(GLOB SOURCES "src/*.c" "src/*.cpp")
+
+
 # Add your source files
-add_executable(${NAME}
-    src/main.cpp # <-- Add source files here!
-    src/u8g2functions.c
-    src/controller/Throttle.cpp
-    src/controller/AdditionalButtons.cpp
-    src/controller/BatteryTest.cpp
-    src/controller/DccExController.cpp
-    src/controller/KeypadManager.cpp
-    # src/controller/main.cpp
-    src/controller/OledDisplay.cpp
-    src/controller/RotaryEncoder.cpp
-    src/controller/Throttle.cpp
-    src/controller/Throttles.cpp
-    src/controller/WiFiManager.cpp
-)
+add_executable(${NAME} ${SOURCES})
 
 target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
 
 # Don't forget to link the libraries you need!
 target_link_libraries(${NAME}
-    encoder
-    button
-    pico-keypad
+    controller
     hardware_pio
     hardware_base
     hardware_timer
@@ -74,7 +61,6 @@ target_link_libraries(${NAME}
     hardware_spi
     pico_stdlib
     u8g2
-    dccexprotocol
     pico_cyw43_arch_lwip_threadsafe_background
     pico_lwip
     pico_cyw43_arch
