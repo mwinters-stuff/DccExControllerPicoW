@@ -1,17 +1,19 @@
-// OledDisplay.cpp
-#include <memory>
 #include <pico/stdlib.h>
-#include <string>
 #include <u8g2.h>
 #include <vector>
 #include <button.hpp>
 
+#include "ExternalSingletons.h"
+
 #include "OledDisplay.h"
 
 #include "GlobalValues.h"
-#include "KeypadManager.h"
-#include "Throttle.h"
+#include "Throttles.h"
 #include "static.h"
+#include "config_buttons.h"
+
+
+
 
 bool oledDirectCommandsAreBeingDisplayed = false;
 #ifdef HASH_SHOWS_FUNCTIONS_INSTEAD_OF_KEY_DEFS
@@ -28,6 +30,10 @@ const std::string directCommandText[4][3] = {
     {CHOSEN_KEYPAD_4_DISPLAY_NAME, CHOSEN_KEYPAD_5_DISPLAY_NAME, CHOSEN_KEYPAD_6_DISPLAY_NAME},
     {CHOSEN_KEYPAD_7_DISPLAY_NAME, CHOSEN_KEYPAD_8_DISPLAY_NAME, CHOSEN_KEYPAD_9_DISPLAY_NAME},
     {"* Menu", CHOSEN_KEYPAD_0_DISPLAY_NAME, "# This"}};
+
+
+void OledDisplay::setup() {
+}
 
 void OledDisplay::initialize(u8g2_t &display) {
    _display = display;
@@ -74,17 +80,17 @@ void OledDisplay::setAppnameForOled() {
 
 void OledDisplay::writeOledFoundSSids(const std::string &soFar) {
   menuIsShowing = true;
-  GlobalValues &globalValues = GlobalValues::getInstance();
-  globalValues.keypadUseType = KEYPAD_USE_SELECT_SSID_FROM_FOUND;
+  
+  globalValues->keypadUseType = KEYPAD_USE_SELECT_SSID_FROM_FOUND;
 
   if (soFar == "") { // nothing entered yet
     clearOledArray();
-    for (int i = 0; i < 5 && i < globalValues.foundSsidsCount; i++) {
-      if (globalValues.foundSsids[(globalValues.page * 5) + i].length() > 0) {
-        oledText[i] = i + ": " + globalValues.foundSsids[(globalValues.page * 5) + i] + "   (" + globalValues.foundSsidRssis[(globalValues.page * 5) + i] + ")";
+    for (int i = 0; i < 5 && i < globalValues->foundSsidsCount; i++) {
+      if (globalValues->foundSsids[(globalValues->page * 5) + i].length() > 0) {
+        oledText[i] = i + ": " + globalValues->foundSsids[(globalValues->page * 5) + i] + "   (" + globalValues->foundSsidRssis[(globalValues->page * 5) + i] + ")";
       }
     }
-    oledText[5] = "(" + std::to_string(globalValues.page + 1) + ") " + menu_text[menu_select_ssids_from_found];
+    oledText[5] = "(" + std::to_string(globalValues->page + 1) + ") " + menu_text[menu_select_ssids_from_found];
     writeOledArray(false, false);
     // } else {
     //   int cmd = menuCommand.substr(0, 1).toInt();
@@ -97,17 +103,17 @@ void OledDisplay::writeOledRoster(const std::string &soFar) {
 
   menuIsShowing = true;
 
-  GlobalValues &globalValues = GlobalValues::getInstance();
+  
 
-  globalValues.keypadUseType = KEYPAD_USE_SELECT_ROSTER;
+  globalValues->keypadUseType = KEYPAD_USE_SELECT_ROSTER;
   if (soFar == "") { // nothing entered yet
     clearOledArray();
-    for (int i = 0; i < 5 && i < globalValues.rosterSize; i++) {
-      if (globalValues.rosterAddress[(globalValues.page * 5) + i] != 0) {
-        oledText[i] = std::to_string(globalValues.rosterIndex[i]) + ": " + globalValues.rosterName[(globalValues.page * 5) + i] + " (" + std::to_string(globalValues.rosterAddress[(globalValues.page * 5) + i]) + ")";
+    for (int i = 0; i < 5 && i < globalValues->rosterSize; i++) {
+      if (globalValues->rosterAddress[(globalValues->page * 5) + i] != 0) {
+        oledText[i] = std::to_string(globalValues->rosterIndex[i]) + ": " + globalValues->rosterName[(globalValues->page * 5) + i] + " (" + std::to_string(globalValues->rosterAddress[(globalValues->page * 5) + i]) + ")";
       }
     }
-    oledText[5] = "(" + std::to_string(globalValues.page + 1) + ") " + menu_text[menu_roster];
+    oledText[5] = "(" + std::to_string(globalValues->page + 1) + ") " + menu_text[menu_roster];
     writeOledArray(false, false);
     // } else {
     //   int cmd = menuCommand.substr(0, 1).toInt();
@@ -119,24 +125,24 @@ void OledDisplay::writeOledTurnoutList(const std::string &soFar, bool action) {
   lastOledStringParameter = soFar;
   lastOledBooleanParameter = action;
 
-  GlobalValues &globalValues = GlobalValues::getInstance();
+  
 
   menuIsShowing = true;
   if (action) { // thrown
-    globalValues.keypadUseType = KEYPAD_USE_SELECT_TURNOUTS_THROW;
+    globalValues->keypadUseType = KEYPAD_USE_SELECT_TURNOUTS_THROW;
   } else {
-    globalValues.keypadUseType = KEYPAD_USE_SELECT_TURNOUTS_CLOSE;
+    globalValues->keypadUseType = KEYPAD_USE_SELECT_TURNOUTS_CLOSE;
   }
   if (soFar == "") { // nothing entered yet
     clearOledArray();
     int j = 0;
-    for (int i = 0; i < 10 && i < globalValues.turnoutListSize; i++) {
+    for (int i = 0; i < 10 && i < globalValues->turnoutListSize; i++) {
       j = (i < 5) ? i : i + 1;
-      if (globalValues.turnoutListUserName[(globalValues.page * 10) + i].length() > 0) {
-        oledText[j] = std::to_string(globalValues.turnoutListIndex[i]) + ": " + globalValues.turnoutListUserName[(globalValues.page * 10) + i].substr(0, 10);
+      if (globalValues->turnoutListUserName[(globalValues->page * 10) + i].length() > 0) {
+        oledText[j] = std::to_string(globalValues->turnoutListIndex[i]) + ": " + globalValues->turnoutListUserName[(globalValues->page * 10) + i].substr(0, 10);
       }
     }
-    oledText[5] = "(" + std::to_string(globalValues.page + 1) + ") " + menu_text[menu_turnout_list];
+    oledText[5] = "(" + std::to_string(globalValues->page + 1) + ") " + menu_text[menu_turnout_list];
     writeOledArray(false, false);
     // } else {
     //   int cmd = menuCommand.substr(0, 1).toInt();
@@ -147,20 +153,20 @@ void OledDisplay::writeOledRouteList(const std::string &soFar) {
   lastOledScreen = last_oled_screen_route_list;
   lastOledStringParameter = soFar;
 
-  GlobalValues &globalValues = GlobalValues::getInstance();
+  
 
   menuIsShowing = true;
-  globalValues.keypadUseType = KEYPAD_USE_SELECT_ROUTES;
+  globalValues->keypadUseType = KEYPAD_USE_SELECT_ROUTES;
   if (soFar == "") { // nothing entered yet
     clearOledArray();
     int j = 0;
-    for (int i = 0; i < 10 && i < globalValues.routeListSize; i++) {
+    for (int i = 0; i < 10 && i < globalValues->routeListSize; i++) {
       j = (i < 5) ? i : i + 1;
-      if (globalValues.routeListUserName[(globalValues.page * 10) + i].length() > 0) {
-        oledText[j] = std::to_string(globalValues.routeListIndex[i]) + ": " + globalValues.routeListUserName[(globalValues.page * 10) + i].substr(0, 10);
+      if (globalValues->routeListUserName[(globalValues->page * 10) + i].length() > 0) {
+        oledText[j] = std::to_string(globalValues->routeListIndex[i]) + ": " + globalValues->routeListUserName[(globalValues->page * 10) + i].substr(0, 10);
       }
     }
-    oledText[5] = "(" + std::to_string(globalValues.page + 1) + ") " + menu_text[menu_route_list];
+    oledText[5] = "(" + std::to_string(globalValues->page + 1) + ") " + menu_text[menu_route_list];
     writeOledArray(false, false);
     // } else {
     //   int cmd = menuCommand.substr(0, 1).toInt();
@@ -180,12 +186,12 @@ void OledDisplay::setMenuTextForOled(int menuTextIndex) {
 
 void OledDisplay::writeOledEnterPassword() {
   lastOledScreen = last_oled_screen_enter_password;
-  GlobalValues &globalValues = GlobalValues::getInstance();
-  globalValues.keypadUseType = KEYPAD_USE_ENTER_SSID_PASSWORD;
-  globalValues.encoderUseType = KEYPAD_USE_ENTER_SSID_PASSWORD;
+  
+  globalValues->keypadUseType = KEYPAD_USE_ENTER_SSID_PASSWORD;
+  globalValues->encoderUseType = KEYPAD_USE_ENTER_SSID_PASSWORD;
   clearOledArray();
   std::string tempSsidPasswordEntered;
-  tempSsidPasswordEntered = globalValues.ssidPasswordEntered + globalValues.ssidPasswordCurrentChar;
+  tempSsidPasswordEntered = globalValues->ssidPasswordEntered + globalValues->ssidPasswordCurrentChar;
   if (tempSsidPasswordEntered.length() > 12) {
     tempSsidPasswordEntered = "\253" + tempSsidPasswordEntered.substr(tempSsidPasswordEntered.length() - 12);
   } else {
@@ -201,7 +207,7 @@ void OledDisplay::writeOledEnterPassword() {
 void OledDisplay::writeOledMenu(const std::string &soFar) {
   lastOledScreen = last_oled_screen_menu;
   lastOledStringParameter = soFar;
-  Throttles &throttles = Throttles::getInstance();
+  
 
   debug_print("writeOledMenu() : ");
   debug_println(soFar.c_str());
@@ -229,15 +235,15 @@ void OledDisplay::writeOledMenu(const std::string &soFar) {
 
     switch (soFar.at(0)) {
     case MENU_ITEM_DROP_LOCO: {
-      if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
+      if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
         writeOledAllLocos(false);
         drawTopLine = true;
       }
     } // fall through
     case MENU_ITEM_FUNCTION:
     case MENU_ITEM_TOGGLE_DIRECTION: {
-      if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() <= 0) {
-        oledText[2] = MSG_THROTTLE_NUMBER + std::to_string(throttles.currentThrottleIndex + 1);
+      if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() <= 0) {
+        oledText[2] = MSG_THROTTLE_NUMBER + std::to_string(throttles->currentThrottleIndex + 1);
         oledText[3] = MSG_NO_LOCO_SELECTED;
         // oledText[5] = menu_cancel;
         setMenuTextForOled(menu_cancel);
@@ -269,7 +275,7 @@ void OledDisplay::writeHeartbeatCheck() {
   menuIsShowing = false;
   clearOledArray();
   oledText[0] = menuText[10][0];
-  if (GlobalValues::getInstance().heartbeatCheckEnabled) {
+  if (globalValues->heartbeatCheckEnabled) {
     oledText[1] = MSG_HEARTBEAT_CHECK_ENABLED;
   } else {
     oledText[1] = MSG_HEARTBEAT_CHECK_DISABLED;
@@ -292,36 +298,36 @@ void OledDisplay::writeOledSpeed() {
   std::string sNextThrottleNo = "";
   std::string sNextThrottleSpeedAndDirection = "";
 
-  Throttles &throttles = Throttles::getInstance();
+  
 
   clearOledArray();
 
   bool drawTopLine = false;
 
-  if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
+  if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
     // oledText[0] = label_locos; oledText[2] = label_speed;
 
-    for (int i = 0; i < throttles.throttles[throttles.currentThrottleIndex]->getLocoCount(); i++) {
-      sLocos = sLocos + " " + throttles.getDisplayLocoString(throttles.currentThrottleIndex, i);
+    for (int i = 0; i < throttles->throttles[throttles->currentThrottleIndex]->getLocoCount(); i++) {
+      sLocos = sLocos + " " + throttles->getDisplayLocoString(throttles->currentThrottleIndex, i);
     }
     // sSpeed = std::string(currentSpeed[currentThrottleIndex]);
-    sSpeed = std::to_string(throttles.getDisplaySpeed(throttles.currentThrottleIndex));
-    sDirection = (throttles.currentDirection[throttles.currentThrottleIndex] == DCCExController::Forward) ? DIRECTION_FORWARD_TEXT : DIRECTION_REVERSE_TEXT;
+    sSpeed = std::to_string(throttles->getDisplaySpeed(throttles->currentThrottleIndex));
+    sDirection = (throttles->currentDirection[throttles->currentThrottleIndex] == DCCExController::Forward) ? DIRECTION_FORWARD_TEXT : DIRECTION_REVERSE_TEXT;
 
     // find the next Throttle that has any locos selected - if there is one
-    if (throttles.maxThrottles > 1) {
-      int nextThrottleIndex = throttles.currentThrottleIndex + 1;
+    if (throttles->maxThrottles > 1) {
+      int nextThrottleIndex = throttles->currentThrottleIndex + 1;
 
-      for (int i = nextThrottleIndex; i < throttles.maxThrottles; i++) {
-        if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
+      for (int i = nextThrottleIndex; i < throttles->maxThrottles; i++) {
+        if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
           foundNextThrottle = true;
           nextThrottleIndex = i;
           break;
         }
       }
-      if ((!foundNextThrottle) && (throttles.currentThrottleIndex > 0)) {
-        for (int i = 0; i < throttles.currentThrottleIndex; i++) {
-          if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
+      if ((!foundNextThrottle) && (throttles->currentThrottleIndex > 0)) {
+        for (int i = 0; i < throttles->currentThrottleIndex; i++) {
+          if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
             foundNextThrottle = true;
             nextThrottleIndex = i;
             break;
@@ -330,10 +336,10 @@ void OledDisplay::writeOledSpeed() {
       }
       if (foundNextThrottle) {
         sNextThrottleNo = std::to_string(nextThrottleIndex + 1);
-        int speed = throttles.getDisplaySpeed(nextThrottleIndex);
+        int speed = throttles->getDisplaySpeed(nextThrottleIndex);
         sNextThrottleSpeedAndDirection = std::to_string(speed);
         // if (speed>0) {
-        if (throttles.currentDirection[nextThrottleIndex] == DCCExController::Forward) {
+        if (throttles->currentDirection[nextThrottleIndex] == DCCExController::Forward) {
           sNextThrottleSpeedAndDirection = sNextThrottleSpeedAndDirection + DIRECTION_FORWARD_TEXT_SHORT;
         } else {
           sNextThrottleSpeedAndDirection = DIRECTION_REVERSE_TEXT_SHORT + sNextThrottleSpeedAndDirection;
@@ -352,7 +358,7 @@ void OledDisplay::writeOledSpeed() {
 
   } else {
     setAppnameForOled();
-    oledText[2] = MSG_THROTTLE_NUMBER + std::to_string(throttles.currentThrottleIndex + 1);
+    oledText[2] = MSG_THROTTLE_NUMBER + std::to_string(throttles->currentThrottleIndex + 1);
     oledText[3] = MSG_NO_LOCO_SELECTED;
     drawTopLine = true;
   }
@@ -365,7 +371,7 @@ void OledDisplay::writeOledSpeed() {
 
   writeOledArray(false, false, false, drawTopLine);
 
-  if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
+  if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
     writeOledFunctions();
 
     // throttle number
@@ -375,24 +381,24 @@ void OledDisplay::writeOledSpeed() {
     u8g2_DrawBox(&_display, 0, 0, 12, 16);
     u8g2_SetDrawColor(&_display, 1);
     u8g2_SetFont(&_display, FONT_THROTTLE_NUMBER); // medium
-    u8g2_DrawStr(&_display, 2, 15, std::to_string(throttles.currentThrottleIndex + 1).c_str());
+    u8g2_DrawStr(&_display, 2, 15, std::to_string(throttles->currentThrottleIndex + 1).c_str());
   }
 
   writeOledBattery();
 
-  if (speedStep != throttles.currentSpeedStep[throttles.currentThrottleIndex]) {
+  if (speedStep != throttles->currentSpeedStep[throttles->currentThrottleIndex]) {
     // oledText[3] = "X " + std::string(speedStepCurrentMultiplier);
     u8g2_SetDrawColor(&_display, 1);
     u8g2_SetFont(&_display, FONT_SPEED_STEP);
     u8g2_DrawGlyph(&_display, 1, 38, glyph_speed_step);
     u8g2_SetFont(&_display, FONT_DEFAULT);
     // u8g2_DrawStr(&_display, 0, 37, ("X " + std::string(speedStepCurrentMultiplier)).c_str());
-    u8g2_DrawStr(&_display, 9, 37, std::to_string(throttles.speedStepCurrentMultiplier).c_str());
+    u8g2_DrawStr(&_display, 9, 37, std::to_string(throttles->speedStepCurrentMultiplier).c_str());
   }
 
-  GlobalValues &globalValues = GlobalValues::getInstance();
+  
 
-  if (globalValues.trackPower == DCCExController::PowerOn) {
+  if (globalValues->trackPower == DCCExController::PowerOn) {
     // u8g2_DrawBox(&_display,0,41,15,8);
     u8g2_DrawRBox(&_display, 0, 40, 9, 9, 1);
     u8g2_SetDrawColor(&_display, 0);
@@ -402,7 +408,7 @@ void OledDisplay::writeOledSpeed() {
   u8g2_DrawGlyph(&_display, 1, 48, glyph_track_power);
   u8g2_SetDrawColor(&_display, 1);
 
-  if (!globalValues.heartbeatCheckEnabled) {
+  if (!globalValues->heartbeatCheckEnabled) {
     u8g2_SetFont(&_display, FONT_HEARTBEAT);
     u8g2_DrawGlyph(&_display, 13, 49, glyph_heartbeat_off);
     u8g2_SetDrawColor(&_display, 2);
@@ -424,7 +430,7 @@ void OledDisplay::writeOledSpeed() {
   u8g2_DrawStr(&_display, 22 + (55 - width), 45, cSpeed);
 
   // speed and direction of next throttle
-  if ((throttles.maxThrottles > 1) && (foundNextThrottle)) {
+  if ((throttles->maxThrottles > 1) && (foundNextThrottle)) {
     u8g2_SetFont(&_display, FONT_NEXT_THROTTLE);
     u8g2_DrawStr(&_display, 85 + 34, 38, sNextThrottleNo.c_str());
     u8g2_DrawStr(&_display, 85 + 12, 48, sNextThrottleSpeedAndDirection.c_str());
@@ -436,45 +442,46 @@ void OledDisplay::writeOledSpeed() {
 }
 
 void OledDisplay::writeOledBattery() {
-  GlobalValues &globalValues = GlobalValues::getInstance();
-  if (globalValues.useBatteryTest) {
+  
+  if (globalValues->useBatteryTest) {
     // int lastBatteryTestValue = random(0,100);
     u8g2_SetFont(&_display, FONT_HEARTBEAT);
     u8g2_SetDrawColor(&_display, 1);
     u8g2_DrawStr(&_display, 1, 30, "Z");
-    if (globalValues.lastBatteryTestValue > 10)
+    if (globalValues->lastBatteryTestValue > 10)
       u8g2_DrawLine(&_display, 2, 24, 2, 27);
-    if (globalValues.lastBatteryTestValue > 25)
+    if (globalValues->lastBatteryTestValue > 25)
       u8g2_DrawLine(&_display, 3, 24, 3, 27);
-    if (globalValues.lastBatteryTestValue > 50)
+    if (globalValues->lastBatteryTestValue > 50)
       u8g2_DrawLine(&_display, 4, 24, 4, 27);
-    if (globalValues.lastBatteryTestValue > 75)
+    if (globalValues->lastBatteryTestValue > 75)
       u8g2_DrawLine(&_display, 5, 24, 5, 27);
-    if (globalValues.lastBatteryTestValue > 90)
+    if (globalValues->lastBatteryTestValue > 90)
       u8g2_DrawLine(&_display, 6, 24, 6, 27);
 
     u8g2_SetFont(&_display, FONT_FUNCTION_INDICATORS);
-    if (globalValues.useBatteryPercentAsWellAsIcon) {
-      u8g2_DrawStr(&_display, 1, 22, (std::to_string(globalValues.lastBatteryTestValue) + "%").c_str());
+    if (globalValues->useBatteryPercentAsWellAsIcon) {
+      u8g2_DrawStr(&_display, 1, 22, (std::to_string(globalValues->lastBatteryTestValue) + "%").c_str());
     }
-    if (globalValues.lastBatteryTestValue < 5) {
+    if (globalValues->lastBatteryTestValue < 5) {
       u8g2_DrawStr(&_display, 11, 29, "LOW");
     }
     u8g2_SetFont(&_display, FONT_DEFAULT);
   }
+  u8g2_SendBuffer(&_display);
 }
 
 // #define MAX_STATE_FUNCTIONS 32
 
 void OledDisplay::writeOledFunctions() {
   lastOledScreen = last_oled_screen_speed;
-  GlobalValues &globalValues = GlobalValues::getInstance();
-  Throttles &throttles = Throttles::getInstance();
+  
+  
   // debug_println("writeOledFunctions():");
   //  int x = 99;
   // bool anyFunctionsActive = false;
   for (int i = 0; i < MAX_STATE_FUNCTS; i++) {
-    if (globalValues.functionStates[throttles.currentThrottleIndex][i]) {
+    if (globalValues->functionStates[throttles->currentThrottleIndex][i]) {
       // old function state format
       //     //  debug_print("Fn On "); debug_println(i);
       //     if (i < 12) {
@@ -516,20 +523,20 @@ void OledDisplay::writeOledFunctionList(const std::string &soFar) {
   lastOledScreen = last_oled_screen_function_list;
   lastOledStringParameter = soFar;
 
-  GlobalValues &globalValues = GlobalValues::getInstance();
-  Throttles &throttles = Throttles::getInstance();
+  
+  
 
   menuIsShowing = true;
-  globalValues.keypadUseType = KEYPAD_USE_SELECT_FUNCTION;
+  globalValues->keypadUseType = KEYPAD_USE_SELECT_FUNCTION;
 
   if (soFar == "") { // nothing entered yet
     clearOledArray();
-    if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
+    if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
       int j = 0;
       int k = 0;
       int truncateAt = 9;
       for (int i = 0; i < 10; i++) {
-        k = (globalValues.functionPage * 10) + i;
+        k = (globalValues->functionPage * 10) + i;
         if (k < MAX_STATE_FUNCTS) {
           j = (i < 5) ? i : i + 1;
           // if (functionLabels[currentThrottleIndex][k].length()>0) {
@@ -538,20 +545,20 @@ void OledDisplay::writeOledFunctionList(const std::string &soFar) {
             oledText[j] = oledText[j] + std::to_string(k);
             truncateAt = 7;
           }
-          oledText[j] = oledText[j] + ((globalValues.functionMomentary[throttles.currentThrottleIndex][k]) ? "." : " ");
-          oledText[j] = oledText[j] + globalValues.functionLabels[throttles.currentThrottleIndex][k].substr(0, truncateAt);
+          oledText[j] = oledText[j] + ((globalValues->functionMomentary[throttles->currentThrottleIndex][k]) ? "." : " ");
+          oledText[j] = oledText[j] + globalValues->functionLabels[throttles->currentThrottleIndex][k].substr(0, truncateAt);
 
-          if (globalValues.functionStates[throttles.currentThrottleIndex][k]) {
+          if (globalValues->functionStates[throttles->currentThrottleIndex][k]) {
             oledTextInvert[j] = true;
           }
           // }
         }
       }
-      oledText[5] = "(" + std::to_string(globalValues.functionPage) + ") " + menu_text[menu_function_list];
+      oledText[5] = "(" + std::to_string(globalValues->functionPage) + ") " + menu_text[menu_function_list];
       // setMenuTextForOled("(" + String(functionPage) +  ") " + menu_function_list);
     } else {
       oledText[0] = MSG_NO_FUNCTIONS;
-      oledText[2] = MSG_THROTTLE_NUMBER + std::to_string(throttles.currentThrottleIndex + 1);
+      oledText[2] = MSG_THROTTLE_NUMBER + std::to_string(throttles->currentThrottleIndex + 1);
       oledText[3] = MSG_NO_LOCO_SELECTED;
       // oledText[5] = menu_cancel;
       setMenuTextForOled(menu_cancel);
@@ -566,20 +573,20 @@ void OledDisplay::writeOledAllLocos(bool hideLeadLoco) {
   lastOledScreen = last_oled_screen_all_locos;
   lastOledBooleanParameter = hideLeadLoco;
 
-  Throttles &throttles = Throttles::getInstance();
+  
 
   int startAt = (hideLeadLoco) ? 1 : 0; // for the loco heading menu, we don't want to show the loco 0 (lead) as an option.
   debug_println("writeOledAllLocos(): ");
   int address;
   int j = 0;
   int i = 0;
-  if (throttles.throttles[throttles.currentThrottleIndex]->getLocoCount() > 0) {
-    for (int index = 0; ((index < throttles.throttles[throttles.currentThrottleIndex]->getLocoCount()) && (i < 8)); index++) { // can only show first 8
+  if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 0) {
+    for (int index = 0; ((index < throttles->throttles[throttles->currentThrottleIndex]->getLocoCount()) && (i < 8)); index++) { // can only show first 8
       j = (i < 4) ? i : i + 2;
-      address = throttles.throttles[throttles.currentThrottleIndex]->getLocoAtPosition(index)->getLoco()->getAddress();
+      address = throttles->throttles[throttles->currentThrottleIndex]->getLocoAtPosition(index)->getLoco()->getAddress();
       if (i >= startAt) {
         oledText[j + 1] = std::to_string(i) + ": " + std::to_string(address);
-        if (throttles.throttles[throttles.currentThrottleIndex]->getLocoFacing(address) == DCCExController::FacingReversed) {
+        if (throttles->throttles[throttles->currentThrottleIndex]->getLocoFacing(address) == DCCExController::FacingReversed) {
           oledTextInvert[j + 1] = true;
         }
       }
@@ -594,7 +601,7 @@ void OledDisplay::writeOledEditConsist() {
   menuIsShowing = false;
   clearOledArray();
   debug_println("writeOledEditConsist(): ");
-  GlobalValues::getInstance().keypadUseType = KEYPAD_USE_EDIT_CONSIST;
+  globalValues->keypadUseType = KEYPAD_USE_EDIT_CONSIST;
   writeOledAllLocos(true);
   oledText[0] = menuText[11][0];
   oledText[5] = menuText[11][1];

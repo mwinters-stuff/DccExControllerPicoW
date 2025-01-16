@@ -2,6 +2,7 @@
 #define CONFIG_KEYPAD_ETC_H
 
 #include <button.hpp>
+#include "config_buttons.h"
 
 #define INPUT_PULLUP true
 //
@@ -78,9 +79,6 @@ using namespace pimoroni;
     #define ADDITIONAL_BUTTONS_TYPE      {Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW,Polarity::ACTIVE_LOW}
    // 34,35,36,39 don't have an internal pullup
 #endif
-
-uint additionalButtonPin[MAX_ADDITIONAL_BUTTONS] =          ADDITIONAL_BUTTONS_PINS;
-Polarity additionalButtonType[MAX_ADDITIONAL_BUTTONS] =         ADDITIONAL_BUTTONS_TYPE;
 
 
 #ifndef ADDITIONAL_BUTTON_DEBOUNCE_DELAY

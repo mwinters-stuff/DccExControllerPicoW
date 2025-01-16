@@ -1,15 +1,12 @@
 #ifndef _FUNCTIONSTATES_H
 #define _FUNCTIONSTATES_H
 
-#include "static.h"
-#include <string>
+#include "Base.h"
 
-class FunctionStates {
+class FunctionStates: public Base {
 public:
-  static FunctionStates &getInstance() {
-    static FunctionStates instance;
-    return instance;
-  }
+  void setup() override;
+  void loop() override;
 
   void resetFunctionStates(int multiThrottleIndex);
 
@@ -21,11 +18,15 @@ public:
 
   void resetAllFunctionFollow();
 
+// FunctionStates() = default;
+//   ~FunctionStates() = default;
 private:
-  FunctionStates() = default;
-  ~FunctionStates() = default;
-  FunctionStates(const FunctionStates &) = delete;
-  FunctionStates &operator=(const FunctionStates &) = delete;
+  
+  // FunctionStates(const FunctionStates &) = delete;
+  // FunctionStates &operator=(const FunctionStates &) = delete;
+
+  // std::shared_ptr<GlobalValues> globalValues;
+  // std::shared_ptr<Throttles> throttles;
 };
 
 #endif

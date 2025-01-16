@@ -2,19 +2,19 @@
 #define _THROTTLES_H
 
 #include <DCCEXProtocol.h>
-#include <memory>
-#include <string>
 #include <vector>
+#include <memory>
 
 #include "Throttle.h"
+#include "Base.h"
 #include "static.h"
 
-class Throttles {
+class Throttles : public Base{
 public:
-  static Throttles &getInstance() {
-    static Throttles instance;
-    return instance;
-  }
+
+
+  void setup() override;
+  void loop() override{};
 
   int throttleIndex;
   std::vector<std::shared_ptr<Throttle>> throttles;
@@ -27,27 +27,17 @@ public:
   // speedstep
   int currentSpeedStep[6]; // set to maximum possible (6 throttles)
 
-  uint32_t lastSpeedSentTime;
-  int lastSpeedSent;
+
   int lastSpeedThrottleIndex;
   uint32_t lastSpeedSentTimeCurrentLoco;
 
-  void addThrottle(std::shared_ptr<Throttle> throttle) {
-    if (throttleIndex < maxThrottles) {
-      throttles.push_back(throttle);
-      throttleIndex++;
-    }
-  }
-  void deleteThrottle(int index) {
-    if (index < maxThrottles) {
-      throttles.erase(throttles.begin() + index);
-      throttleIndex--;
-    }
-  }
-  void deleteAllThrottles() {
-    throttles.clear();
-    throttleIndex = 0;
-  }
+// used to stop speed bounces
+uint32_t lastSpeedSentTime = 0;
+int lastSpeedSent = 0;
+
+  void addThrottle(std::shared_ptr<Throttle> throttle) ;
+  void deleteThrottle(int index);
+  void deleteAllThrottles() ;
 
   void releaseAllLocos(int multiThrottleIndex);
   void releaseOneLoco(int multiThrottleIndex, int address);
@@ -69,20 +59,15 @@ public:
 
   void loadFunctionLabels(int multiThrottleIndex);
 
-  void doDirectFunction(int multiThrottleIndex, int functionNumber, bool pressed);
-  void doFunction(int multiThrottleIndex, int functionNumber, bool pressed);
-  void doFunctionWhichLocosInConsist(int multiThrottleIndex, int functionNumber, bool pressed);
+  // void doDirectFunction(int multiThrottleIndex, int functionNumber, bool pressed);
+  // void doFunction(int multiThrottleIndex, int functionNumber, bool pressed);
+  // void doFunctionWhichLocosInConsist(int multiThrottleIndex, int functionNumber, bool pressed);
   void powerOnOff(DCCExController::TrackPower powerState);
   void powerToggle();
   void nextThrottle();
   void changeNumberOfThrottles(bool increase);
   void stopThenToggleDirection();
 
-private:
-  Throttles() = default;
-  ~Throttles() = default;
-  Throttles(const Throttles &) = delete;
-  Throttles &operator=(const Throttles &) = delete;
 };
 
 #endif

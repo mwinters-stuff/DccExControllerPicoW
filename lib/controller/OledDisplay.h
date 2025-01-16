@@ -1,33 +1,43 @@
-// OledDisplay.h
 #ifndef _OLEDDISPLAY_H
 #define _OLEDDISPLAY_H
 
-#include "KeypadManager.h"
-#include <DCCEXProtocol.h>
-#include <memory>
-#include <string>
 #include <u8g2.h>
 #include <vector>
-// #include "../u8g2functions.h"
-#include "FunctionStates.h"
-#include "Throttles.h"
+#include <string>
 
-class OledDisplay {
+#include "Base.h"
+
+class OledDisplay: public Base {
 public:
-  static OledDisplay &getInstance() {
-    static OledDisplay instance;
-    return instance;
-  }
+  // static std::shared_ptr<OledDisplay> getInstance() {
+  //   static std::shared_ptr<OledDisplay> instance = std::make_shared<OledDisplay>();
+  //   return instance;
+  // }
 
   std::string menuCommand = "";
   bool menuCommandStarted = false;
   bool menuIsShowing = false;
 
+  std::vector<std::string> oledText{18, ""};
+  int lastOledScreen = 0;
+  std::string lastOledStringParameter = "";
+  int lastOledIntParameter = 0;
+  bool lastOledBooleanParameter = false;
+  // Broadcast msessage
+  std::string broadcastMessageText = "";
+  uint32_t broadcastMessageTime = 0;
+
 
   // Delete copy constructor and assignment operator to prevent copies
-  OledDisplay(const OledDisplay &) = delete;
-  OledDisplay &operator=(const OledDisplay &) = delete;
+  // OledDisplay(const OledDisplay &) = delete;
+  // OledDisplay &operator=(const OledDisplay &) = delete;
+  OledDisplay()
+      : oledTextInvert(18, false) {
+    // Initialization code here
+  }
 
+  void setup() override;
+  void loop() override{};
   void initialize(u8g2_t &display);
   void updateDisplay(const std::string &text);
   void clearDisplay();
@@ -57,23 +67,11 @@ public:
   void setMenuTextForOled(int menuTextIndex);
 
 private:
-  OledDisplay()
-      : oledTextInvert(18, false) {
-    // Initialization code here
-  }
 
   u8g2_t _display;
 
-  std::vector<std::string> oledText{18, ""};
   std::vector<bool> oledTextInvert;
   // std::string soFar = "";
-  int lastOledScreen = 0;
-  std::string lastOledStringParameter = "";
-  int lastOledIntParameter = 0;
-  bool lastOledBooleanParameter = false;
-  // Broadcast msessage
-  std::string broadcastMessageText = "";
-  uint32_t broadcastMessageTime = 0;
 };
 
 #endif // _OLEDDISPLAY_H

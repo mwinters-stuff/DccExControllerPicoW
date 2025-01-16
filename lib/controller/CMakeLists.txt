@@ -13,4 +13,10 @@ target_link_libraries(controller INTERFACE
   button
   pico-keypad
   dccexprotocol
+  pico_cyw43_arch_lwip_threadsafe_background
+  pico_lwip
+  pico_cyw43_arch
+  pico_lwip_nosys
+  pico_lwip_arch
+
   )

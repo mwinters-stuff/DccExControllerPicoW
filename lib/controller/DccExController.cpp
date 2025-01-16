@@ -1,120 +1,116 @@
+
+
+#include <DCCEXLoco.h>
 #include "DccExController.h"
-#include "WiFiManager.h"
+#include "ExternalSingletons.h"
+#include "GlobalValues.h"
 #include "OledDisplay.h"
-#include "RotaryEncoder.h"
-#include "BatteryTest.h"
+#include "Throttles.h"
+#include "DCCEXProtocol.h"
+#include "FunctionStates.h"
 #include "KeypadManager.h"
-#include "AdditionalButtons.h"
-// #include "DCCEXProtocolDelegate.h"
+#include "WitServer.h"
 
-// Constructor
-// DccExController::DccExController() {
-//     // Initialize components
-//     wifiManager = new WiFiManager();
-//     oledDisplay = new OledDisplay();
-//     rotaryEncoder = new RotaryEncoder();
-//     batteryTest = new BatteryTest();
-//     keypadManager = new KeypadManager();
-//     additionalButtons = new AdditionalButtons();
-// }
+using namespace DCCExController;
 
-// // Destructor
-// DccExController::~DccExController() {
-//     delete wifiManager;
-//     delete oledDisplay;
-//     delete rotaryEncoder;
-//     delete batteryTest;
-//     delete keypadManager;
-//     delete additionalButtons;
-// }
+#define maxFoundWitServers 5     // must be 5 for the moment
+#define maxFoundSsids 60     // must be a multiple of 5
+#define maxRoster 60     // must be a multiple of 10
+#define maxTurnoutList 60     // must be a multiple of 10
+#define maxRouteList 60     // must be a multiple of 10
+
+extern void displayUpdateFromWit(int multiThrottleIndex);
 
 // Setup method
 void DccExController::setup() {
-//     wifiManager->setup();
-//     oledDisplay->setup();
-//     rotaryEncoder->setup();
-//     batteryTest->setup();
-//     keypadManager->setup();
-//     additionalButtons->setup();
 }
 
-// // Main loop
+
 void DccExController::loop() {
-    // wifiManager->loop();
-    // oledDisplay->loop();
-    // rotaryEncoder->loop();
-    // batteryTest->loop();
-    // keypadManager->loop();
-    // additionalButtons->loop();
 }
 
-void DccExController::selectRoster(int index){
+void DccExController::selectRoster(int selection){
+  debug_print("selectRoster() "); debug_println(std::to_string(selection).c_str());
 
+  if ((selection>=0) && (selection < globalValues->rosterSize)) {
+    int address = globalValues->rosterAddress[selection];
+    debug_print("add Loco: "); debug_print(std::to_string(address).c_str());
+    Loco* loco1 = dccExProtocol->findLocoInRoster(address);
+    throttles->throttles[throttles->currentThrottleIndex]->addLoco(loco1,FacingForward);
+
+    debug_print(" name: "); debug_println(loco1->getName());
+
+    functionStates->resetFunctionStates(throttles->currentThrottleIndex);
+    throttles->loadFunctionLabels(throttles->currentThrottleIndex);
+
+    oledDisplay->writeOledSpeed();
+    globalValues->keypadUseType = KEYPAD_USE_OPERATION;
+  }
 }
 
-void DccExController::selectTurnoutList(int index, bool state) {
-      debug_print("selectTurnoutList() "); debug_println(selection);
+void DccExController::selectTurnoutList(int selection, bool action) {
+      debug_print("selectTurnoutList() "); debug_println(std::to_string(selection).c_str());
 
-  if ((selection>=0) && (selection < turnoutListSize)) {
-    int id = turnoutListSysName[selection].toInt();
-    debug_print("Turnout Selected: "); debug_println(id);
+  if ((selection>=0) && (selection < globalValues->turnoutListSize)) {
+    int id = globalValues->turnoutListSysName[selection];
+    debug_print("Turnout Selected: "); debug_println(std::to_string(id).c_str());
     if (action) {
-      dccexProtocol.throwTurnout(id);
+      dccExProtocol->throwTurnout(id);
     } else {
-      dccexProtocol.closeTurnout(id);
+      dccExProtocol->closeTurnout(id);
     }
-    writeOledSpeed();
-    keypadUseType = KEYPAD_USE_OPERATION;
+    oledDisplay->writeOledSpeed();
+    globalValues->keypadUseType = KEYPAD_USE_OPERATION;
   }
 }
 
-void DccExController::selectRouteList(int index) {
-      debug_print("selectRouteList() "); debug_println(selection);
+void DccExController::selectRouteList(int selection) {
+      debug_print("selectRouteList() "); debug_println(std::to_string(selection).c_str());
 
-  if ((selection>=0) && (selection < routeListSize)) {
-    int id = routeListSysName[selection].toInt();
-    debug_print("Route Selected: "); debug_println(id);
-    dccexProtocol.startRoute(id);
-    writeOledSpeed();
-    keypadUseType = KEYPAD_USE_OPERATION;
+  if ((selection>=0) && (selection < globalValues->routeListSize)) {
+    int id = globalValues->routeListSysName[selection];
+    debug_print("Route Selected: "); debug_println(std::to_string(id).c_str());
+    dccExProtocol->startRoute(id);
+    oledDisplay->writeOledSpeed();
+    globalValues->keypadUseType = KEYPAD_USE_OPERATION;
   }
 }
 
-void DccExController::selectFunctionList(int index) {
-      debug_print("selectFunctionList() "); debug_println(selection);
+void DccExController::selectFunctionList(int selection) {
+      debug_print("selectFunctionList() "); debug_println(std::to_string(selection).c_str());
 
   if ((selection>=0) && (selection < MAX_STATE_FUNCTS)) {
-    String function = functionLabels[currentThrottleIndex][selection];
-    debug_print("Function Selected: "); debug_println(function);
-    doFunction(currentThrottleIndex, selection, true);
-    writeOledSpeed();
-    keypadUseType = KEYPAD_USE_OPERATION;
+    std::string function = globalValues->functionLabels[throttles->currentThrottleIndex][selection];
+    debug_print("Function Selected: "); debug_println(function.c_str());
+    keypadManager->doFunction(throttles->currentThrottleIndex, selection, true);
+    oledDisplay->writeOledSpeed();
+    globalValues->keypadUseType = KEYPAD_USE_OPERATION;
   }
 }
 
-void DccExController::selectEditConsistList(int index) {
-      debug_print("selectEditConsistList() "); debug_println(selection);
+void DccExController::selectEditConsistList(int selection) {
+      debug_print("selectEditConsistList() "); debug_println(std::to_string(selection).c_str());
 
-  if (throttles[currentThrottleIndex]->getLocoCount() > 1 ) {
-    int address = throttles[currentThrottleIndex]->getLocoAtPosition(selection)->getLoco()->getAddress();
-    toggleLocoFacing(currentThrottleIndex, address);
+  if (throttles->throttles[throttles->currentThrottleIndex]->getLocoCount() > 1 ) {
+    int address = throttles->throttles[throttles->currentThrottleIndex]->getLocoAtPosition(selection)->getLoco()->getAddress();
+    throttles->toggleLocoFacing(throttles->currentThrottleIndex, address);
 
-    writeOledSpeed();
-    keypadUseType = KEYPAD_USE_OPERATION;
+    oledDisplay->writeOledSpeed();
+    globalValues->keypadUseType = KEYPAD_USE_OPERATION;
   }
 }
 
 void DccExController::_loadRoster() {
       debug_print("_loadRoster()");
-  rosterSize = dccexProtocol.getRosterCount();
-  debug_println(rosterSize);
-  if (rosterSize > 0) {
+  globalValues->rosterSize = dccExProtocol->getRosterCount();
+  debug_println(std::to_string(globalValues->rosterSize).c_str());
+  if (globalValues->rosterSize > 0) {
     int index = 0;
-    for (Loco* rl=dccexProtocol.roster->getFirst(); rl; rl=rl->getNext()) {
+    for (Loco* rl=dccExProtocol->roster->getFirst(); rl; rl=rl->getNext()) {
       if (index < maxRoster) {
-        rosterIndex[index] = index; 
-        rosterName[index] = rl->getName(); 
-        rosterAddress[index] = rl->getAddress();
+        globalValues->rosterIndex[index] = index; 
+        globalValues->rosterName[index] = rl->getName(); 
+        globalValues->rosterAddress[index] = rl->getAddress();
         index++;
       }
     }
@@ -124,16 +120,16 @@ void DccExController::_loadRoster() {
 
 void DccExController::_loadTurnoutList() {
    debug_println("_loadTurnoutList()");
-  turnoutListSize = dccexProtocol.getTurnoutCount();
-  debug_println(turnoutListSize);
-  if (turnoutListSize > 0) {
+  globalValues->turnoutListSize = dccExProtocol->getTurnoutCount();
+  debug_println(std::to_string(globalValues->turnoutListSize).c_str());
+  if (globalValues->turnoutListSize > 0) {
     int index = 0;
-    for (Turnout* tl=dccexProtocol.turnouts->getFirst(); tl; tl=tl->getNext()) {
+    for (Turnout* tl=dccExProtocol->turnouts->getFirst(); tl; tl=tl->getNext()) {
       if (index < maxTurnoutList) {
-        turnoutListIndex[index] = index; 
-        turnoutListSysName[index] = tl->getId(); 
-        turnoutListUserName[index] = tl->getName();
-        turnoutListState[index] = tl->getThrown();
+        globalValues->turnoutListIndex[index] = index; 
+        globalValues->turnoutListSysName[index] = tl->getId(); 
+        globalValues->turnoutListUserName[index] = tl->getName();
+        globalValues->turnoutListState[index] = tl->getThrown();
         index++;
       }
     }
@@ -143,16 +139,16 @@ void DccExController::_loadTurnoutList() {
 
 void DccExController::_loadRouteList() {
       debug_println("_loadRouteList()");
-  routeListSize = dccexProtocol.getRouteCount();
-  debug_println(routeListSize);
-  if (routeListSize > 0) {
+  globalValues->routeListSize = dccExProtocol->getRouteCount();
+  debug_println(std::to_string(globalValues->routeListSize).c_str());
+  if (globalValues->routeListSize > 0) {
     int index = 0;
-    for (Route* rl=dccexProtocol.routes->getFirst(); rl; rl=rl->getNext()) {
+    for (Route* rl=dccExProtocol->routes->getFirst(); rl; rl=rl->getNext()) {
       if (index < maxRouteList) {
-        debug_print("_loadRouteList() : "); debug_print(rl->getId());
-        routeListIndex[index] = index; 
-        routeListSysName[index] = rl->getId(); 
-        routeListUserName[index] = rl->getName();
+        debug_print("_loadRouteList() : "); debug_print(std::to_string(rl->getId()).c_str());
+        globalValues->routeListIndex[index] = index; 
+        globalValues->routeListSysName[index] = rl->getId(); 
+        globalValues->routeListUserName[index] = rl->getName();
         index++;
       }
     }
@@ -160,49 +156,71 @@ void DccExController::_loadRouteList() {
   debug_println("_loadRouteList() end");
 }
 
+void DccExController::_processLocoUpdate(Loco* loco) {
+  throttles->debugLocoSpeed("_processLocoUpdate() start:", loco);
+  bool found = false;
+  for (int i=0; i<throttles->maxThrottles; i++) {
+    if (throttles->throttles[i]->getLocoCount()>0) {
+      Loco* firstLoco = throttles->throttles[i]->getFirst()->getLoco();
+      if (loco == firstLoco) {
+        found = true;
 
-void DccExController::debugLocoSpeed(String txt, Loco* loco) {
-    debugLocoSpeed(txt, loco->getAddress(), loco->getSource(), loco->getSpeed(), loco->getDirection()); 
-}
-
-void DccExController::debugLocoSpeed(String txt, int locoId, LocoSource source, int speed, Direction dir) {
-    debug_print(txt);
-    debug_print(" loco: "); debug_print(locoId); 
-    debug_print(" source: "); debug_print( (source == 0) ? "Roster" : "Entered"); 
-    debug_print(" speed: "); debug_print(speed); 
-    debug_print(" dir: "); debug_print( (dir == Forward) ? "Forward" : "Reverse" ); 
-    debug_println("");
-}
-
-void DccExController::deepSleepStart() {
-    deepSleepStart(SLEEP_REASON_COMMAND);
-}
-
-void DccExController::deepSleepStart(int shutdownReason) {
-    clearOledArray(); 
-    setAppnameForOled();
-    int delayPeriod = 2000;
-    if (shutdownReason == SLEEP_REASON_INACTIVITY) {
-        oledText[2] = MSG_AUTO_SLEEP;
-        delayPeriod = 10000;
-    } else if (shutdownReason == SLEEP_REASON_BATTERY) {
-        oledText[2] = MSG_BATTERY_SLEEP;
-        delayPeriod = 10000;
+        // check for bounce. (intermediate speed sent back from the server, but is not up to date with the throttle)
+        if ( (throttles->lastSpeedThrottleIndex != i) || ((pimoroni::millis()-throttles->lastSpeedSentTime)>2000) ) {
+          throttles->currentSpeed[i] = loco->getSpeed();
+          throttles->currentDirection[i] = loco->getDirection();
+          throttles->debugLocoSpeed("_processLocoUpdate() Processing Received Speed: (" + std::to_string(throttles->lastSpeedThrottleIndex) + ") ", loco);
+          displayUpdateFromWit(i);
+        } else {
+          // debug_print("Received Speed: skipping response: ("); debug_print(lastSpeedThrottleIndex); debug_print(") speed: "); debug_println(loco->getSpeed());
+          throttles->debugLocoSpeed("_processLocoUpdate() Skipping Received Speed! ", loco);
+        }
+        for (int j=0; j<MAX_FUNCTIONS; j++) {
+          int state = (loco->isFunctionOn(j)) ?  1 : 0;
+          if (globalValues->functionStates[i][j] != loco->isFunctionOn(j)) {
+            debug_println("Changed");
+            globalValues->functionStates[i][j] = state;
+            displayUpdateFromWit(i);
+          }
+        }
+      }
     }
-    oledText[3] = MSG_START_SLEEP;
-    writeOledArray(false, false, true, true);
-    delay(delayPeriod);
-
-    u8g2.setPowerSave(1);
-    esp_deep_sleep_start();
+  }
+  if (!found) {
+    debug_println("_processLocoUpdate() loco not found");  
+  }
+  debug_println("_processLocoUpdate() end");
 }
 
-char DccExController::getMultiThrottleChar(int index) {
+// void DccExController::deepSleepStart() {
+//     // deepSleepStart(SLEEP_REASON_COMMAND);
+// }
+
+// void DccExController::deepSleepStart(int shutdownReason) {
+//     // clearOledArray(); 
+//     // setAppnameForOled();
+//     // int delayPeriod = 2000;
+//     // if (shutdownReason == SLEEP_REASON_INACTIVITY) {
+//     //     oledText[2] = MSG_AUTO_SLEEP;
+//     //     delayPeriod = 10000;
+//     // } else if (shutdownReason == SLEEP_REASON_BATTERY) {
+//     //     oledText[2] = MSG_BATTERY_SLEEP;
+//     //     delayPeriod = 10000;
+//     // }
+//     // oledText[3] = MSG_START_SLEEP;
+//     // writeOledArray(false, false, true, true);
+//     // delay(delayPeriod);
+
+//     // u8g2.setPowerSave(1);
+//     // esp_deep_sleep_start();
+// }
+
+char DccExController::getMultiThrottleChar(int multiThrottleIndex) {
     // Implementation for getting a multi-throttle character
    return '0' + multiThrottleIndex;
 }
 
-int DccExController::getMultiThrottleIndex(char throttleChar) {
+int DccExController::getMultiThrottleIndex(char multiThrottle) {
     int mThrottle = multiThrottle - '0';
     if ((mThrottle >= 0) && (mThrottle<=5)) {
         return mThrottle;
@@ -222,3 +240,9 @@ void DccExController::powerOn() {
 void DccExController::powerOff() {
     // Implementation for turning power off
 } 
+void DccExController::toggleHeartbeatCheck(){
+
+}
+void DccExController::changeNumberOfThrottles(bool increase){
+  
+}

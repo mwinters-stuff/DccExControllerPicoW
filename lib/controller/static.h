@@ -5,7 +5,7 @@
 #include "actions.h"
 
 const std::string appName = "DccExController";
-const std::string appVersion = "              v0.22";
+const std::string appVersion = "              v0.33";
 
 // #define debug_print printf
 // #define debug_println(x) printf("%s\n", x)
@@ -456,8 +456,6 @@ const std::string extraSubMenuText[8] = {
 #else
   const bool speedDisplayAs0to28 = false;
 #endif
-
-std::string witServerIpAndPortEntryMask = "###.###.###.###:#####";
 
 #ifndef DEFAULT_IP_AND_PORT 
   #define DEFAULT_IP_AND_PORT ""

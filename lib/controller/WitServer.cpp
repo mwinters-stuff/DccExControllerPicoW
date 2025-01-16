@@ -1,15 +1,141 @@
 #include "WitServer.h"
+#include "ExternalSingletons.h"
+#include "GlobalValues.h"
+#include "OledDisplay.h"
+#include "FunctionStates.h"
+#include "Throttles.h"
+#include "static.h"
 
-void WitServer::witServiceLoop() {
-    if (dccexConnectionState == CONNECTION_STATE_DISCONNECTED) {
+#include <lwip/tcp.h>
+#include <lwip/ip_addr.h>
+#include <lwip/dns.h>
+#include <lwip/netif.h>
+#include <lwip/timeouts.h>
+#include "wifi_connection.h"
+#include "print_stream.h"
+
+
+extern bool hashShowsFunctionsInsteadOfKeyDefs;
+
+PrintStream printStream;
+
+void displayUpdateFromWit(int multiThrottleIndex) {
+  debug_print("displayUpdateFromWit(): keyapdeUseType "); debug_print(std::to_string(globalValues->keypadUseType).c_str()); 
+  // debug_print(" menuIsShowing "); debug_print(menuIsShowing);
+  // debug_print(" multiThrottleIndex "); debug_print(multiThrottleIndex);
+  // debug_println("");
+  if ( (globalValues->keypadUseType==KEYPAD_USE_OPERATION) && (!oledDisplay->menuIsShowing) 
+  && (multiThrottleIndex==throttles->currentThrottleIndex) ) {
+    oledDisplay->writeOledSpeed();
+  }
+}
+
+// dccexProtocol Delegate class
+class MyDelegate : public DCCExController::DCCEXProtocolDelegate {
+  
+  public:
+    void heartbeatConfig(int seconds) { 
+      debug_print("Received heartbeat. From: "); debug_print(std::to_string(globalValues->heartBeatPeriod).c_str()); 
+      debug_print(" To: "); debug_println(std::to_string(seconds).c_str()); 
+      globalValues->heartBeatPeriod = seconds;
+    }
+    void receivedServerVersion(int major, int minor, int patch) {
+      debug_print("\n\nReceived version: ");
+      debug_print(std::to_string(major).c_str());
+      debug_print(".");
+      debug_print(std::to_string(minor).c_str());
+      debug_print(".");
+      debug_println(std::to_string(patch).c_str());
+    }
+    void receivedMessage(char* message) {
+      debug_print("Broadcast Message: ");
+      debug_println(message);
+      oledDisplay->broadcastMessageText = std::string(message);
+      oledDisplay->broadcastMessageTime = millis();
+      refreshOled();
+    }
+    virtual void receivedLocoUpdate(DCCExController::Loco* loco) {
+      throttles->debugLocoSpeed("receivedLocoUpdate: ", loco); 
+      dccExController->_processLocoUpdate(loco);
+    }
+    void receivedTrackPower(DCCExController::TrackPower state) { 
+      debug_print("Received TrackPower: "); debug_println(state == DCCExController::PowerOn ? "On" : "Off");
+      if (globalValues->trackPower != state) {
+        globalValues->trackPower = state;
+        // displayUpdateFromWit(-1); // dummy multithrottlehumm
+        refreshOled();
+      }
+    }
+    // void receivedIndividualTrackPower(TrackPower state, int track) { 
+    //   debug_print("Received Indivdual TrackPower: "); 
+    //   debug_print(state);
+    //   debug_print(" : ");
+    //   debug_println(track);
+    // }
+    void receivedRosterList() {
+      debug_println("Received Roster List");
+      dccExController->_loadRoster();
+    }
+    void receivedTurnoutList() {
+      debug_println("Received Turnouts/Points list");
+      dccExController->_loadTurnoutList();
+    }    
+    void receivedRouteList() {
+      debug_println("Received Routes List");
+      dccExController->_loadRouteList();
+    }
+
+    void refreshOled() {
+     debug_print("refreshOled(): ");
+     debug_println(std::to_string(oledDisplay->lastOledScreen).c_str());
+        switch (oledDisplay->lastOledScreen) {
+            case last_oled_screen_speed:
+            oledDisplay->writeOledSpeed();
+            break;
+            case last_oled_screen_turnout_list:
+            oledDisplay->writeOledTurnoutList(oledDisplay->lastOledStringParameter, oledDisplay->lastOledBooleanParameter);
+            break;
+            case last_oled_screen_route_list:
+            oledDisplay->writeOledRouteList(oledDisplay->lastOledStringParameter);
+            break;
+            case last_oled_screen_function_list:
+            oledDisplay->writeOledFunctionList(oledDisplay->lastOledStringParameter);
+            break;
+            case last_oled_screen_menu:
+            oledDisplay->writeOledMenu(oledDisplay->lastOledStringParameter);
+            break;
+            case last_oled_screen_extra_submenu:
+            oledDisplay->writeOledExtraSubMenu();
+            break;
+            case last_oled_screen_all_locos:
+            oledDisplay->writeOledAllLocos(oledDisplay->lastOledBooleanParameter);
+            break;
+            case last_oled_screen_edit_consist:
+            oledDisplay->writeOledEditConsist();
+            break;
+            case last_oled_screen_direct_commands:
+            oledDisplay->writeOledDirectCommands();
+            break;
+        }
+        }
+};
+
+MyDelegate myDelegate;
+
+void WitServer::setup() {
+    
+}
+
+void WitServer::loop() {
+    if (globalValues->dccexConnectionState == CONNECTION_STATE_DISCONNECTED) {
         browseWitService();
     }
 
-    if (dccexConnectionState == CONNECTION_STATE_ENTRY_REQUIRED) {
+    if (globalValues->dccexConnectionState == CONNECTION_STATE_ENTRY_REQUIRED) {
         enterWitServer();
     }
 
-    if ((dccexConnectionState == CONNECTION_STATE_SELECTED) || (dccexConnectionState == CONNECTION_STATE_ENTERED)) {
+    if ((globalValues->dccexConnectionState == CONNECTION_STATE_SELECTED) || (globalValues->dccexConnectionState == CONNECTION_STATE_ENTERED)) {
         connectWitServer();
     }
 }
@@ -17,105 +143,105 @@ void WitServer::witServiceLoop() {
 void WitServer::browseWitService() {
     // debug_println("browseWitService()");
 
-    keypadUseType = KEYPAD_USE_SELECT_WITHROTTLE_SERVER;
+    globalValues->keypadUseType = KEYPAD_USE_SELECT_WITHROTTLE_SERVER;
 
-    double startTime = millis();
+    double startTime = pimoroni::millis();
     double nowTime = startTime;
 
     const char *service = "withrottle";
     const char *proto = "tcp";
 
     // debug_printf("Browsing for service _%s._%s.local. on %s ... ", service, proto, selectedSsid.c_str());
-    clearOledArray();
-    oledText[0] = appName;
-    oledText[6] = appVersion;
-    oledText[1] = selectedSsid;
-    oledText[2] = MSG_BROWSING_FOR_SERVICE;
-    writeOledArray(false, false, true, true);
+    oledDisplay->clearOledArray();
+    oledDisplay->oledText[0] = appName;
+    oledDisplay->oledText[6] = appVersion;
+    oledDisplay->oledText[1] = globalValues->selectedSsid;
+    oledDisplay->oledText[2] = MSG_BROWSING_FOR_SERVICE;
+    oledDisplay->writeOledArray(false, false, true, true);
 
-    noOfWitServices = 0;
-    if ((selectedSsid.substr(0, 6) == "DCCEX_") && (selectedSsid.length() == 12)) {
+    globalValues->noOfWitServices = 0;
+    if ((globalValues->selectedSsid.substr(0, 6) == "DCCEX_") && (globalValues->selectedSsid.length() == 12)) {
         // debug_println(MSG_BYPASS_WIT_SERVER_SEARCH);
-        oledText[1] = MSG_BYPASS_WIT_SERVER_SEARCH;
-        writeOledArray(false, false, true, true);
-        delay(500);
+        oledDisplay->oledText[1] = MSG_BYPASS_WIT_SERVER_SEARCH;
+        oledDisplay->writeOledArray(false, false, true, true);
+        sleep_ms(500);
     } else {
-        while ((noOfWitServices == 0) && ((nowTime - startTime) <= 5000)) { // try for 5 seconds
-            noOfWitServices = MDNS.queryService(service, proto);
-            if (noOfWitServices == 0) {
-                delay(500);
-                debug_print(".");
-            }
-            nowTime = millis();
+        while ((globalValues->noOfWitServices == 0) && ((nowTime - startTime) <= 5000)) { // try for 5 seconds
+            // noOfWitServices = MDNS.queryService(service, proto);
+            // if (noOfWitServices == 0) {
+            //     sleep_ms(500);
+            //     debug_print(".");
+            // }
+            nowTime = pimoroni::millis();
         }
     }
     debug_println("");
 
-    foundWitServersCount = noOfWitServices;
-    if (noOfWitServices > 0) {
-        for (int i = 0; ((i < noOfWitServices) && (i < maxFoundWitServers)); ++i) {
-            foundWitServersNames[i] = MDNS.hostname(i);
-            // foundWitServersIPs[i] = MDNS.IP(i);
-            foundWitServersIPs[i] = ESPMDNS_IP_ATTRIBUTE_NAME;
-            foundWitServersPorts[i] = MDNS.port(i);
-            // debug_print("txt 0: key: "); debug_print(MDNS.txtKey(i, 0)); debug_print(" value: '"); debug_print(MDNS.txt(i, 0)); debug_println("'");
-            // debug_print("txt 1: key: "); debug_print(MDNS.txtKey(i, 1)); debug_print(" value: '"); debug_print(MDNS.txt(i, 1)); debug_println("'");
-            // debug_print("txt 2: key: "); debug_print(MDNS.txtKey(i, 2)); debug_print(" value: '"); debug_print(MDNS.txt(i, 2)); debug_println("'");
-            // debug_print("txt 3: key: "); debug_print(MDNS.txtKey(i, 3)); debug_print(" value: '"); debug_println(MDNS.txt(i, 3)); debug_println("'");
-            if (MDNS.hasTxt(i, "jmri")) {
-                std::string node = MDNS.txt(i, "node");
-                std::transform(node.begin(), node.end(), node.begin(), ::tolower);
-                if (foundWitServersNames[i] == node) {
-                    foundWitServersNames[i] = "JMRI  (v" + MDNS.txt(i, "jmri") + ")";
-                }
-            }
+    globalValues->foundWitServersCount = globalValues->noOfWitServices;
+    if (globalValues->noOfWitServices > 0) {
+        for (int i = 0; ((i < globalValues->noOfWitServices) && (i < globalValues->maxFoundWitServers)); ++i) {
+            // globalValues->foundWitServersNames[i] = MDNS.hostname(i);
+            // // foundWitServersIPs[i] = MDNS.IP(i);
+            // globalValues->foundWitServersIPs[i] = ESPMDNS_IP_ATTRIBUTE_NAME;
+            // globalValues->foundWitServersPorts[i] = MDNS.port(i);
+            // // debug_print("txt 0: key: "); debug_print(MDNS.txtKey(i, 0)); debug_print(" value: '"); debug_print(MDNS.txt(i, 0)); debug_println("'");
+            // // debug_print("txt 1: key: "); debug_print(MDNS.txtKey(i, 1)); debug_print(" value: '"); debug_print(MDNS.txt(i, 1)); debug_println("'");
+            // // debug_print("txt 2: key: "); debug_print(MDNS.txtKey(i, 2)); debug_print(" value: '"); debug_print(MDNS.txt(i, 2)); debug_println("'");
+            // // debug_print("txt 3: key: "); debug_print(MDNS.txtKey(i, 3)); debug_print(" value: '"); debug_println(MDNS.txt(i, 3)); debug_println("'");
+            // if (MDNS.hasTxt(i, "jmri")) {
+            //     std::string node = MDNS.txt(i, "node");
+            //     std::transform(node.begin(), node.end(), node.begin(), ::tolower);
+            //     if (foundWitServersNames[i] == node) {
+            //         foundWitServersNames[i] = "JMRI  (v" + MDNS.txt(i, "jmri") + ")";
+            //     }
+            // }
         }
     }
-    if ((selectedSsid.substr(0, 6) == "DCCEX_") && (selectedSsid.length() == 12)) {
-        foundWitServersIPs[foundWitServersCount] = "192.168.4.1";
-        foundWitServersPorts[foundWitServersCount] = 2560;
-        foundWitServersNames[foundWitServersCount] = MSG_GUESSED_EX_CS_WIT_SERVER;
-        foundWitServersCount++;
+    if ((globalValues->selectedSsid.substr(0, 6) == "DCCEX_") && (globalValues->selectedSsid.length() == 12)) {
+        globalValues->foundWitServersIPs[globalValues->foundWitServersCount] = "192.168.4.1";
+        globalValues->foundWitServersPorts[globalValues->foundWitServersCount] = 2560;
+        globalValues->foundWitServersNames[globalValues->foundWitServersCount] = MSG_GUESSED_EX_CS_WIT_SERVER;
+        globalValues->foundWitServersCount++;
     }
 
-    if (foundWitServersCount == 0) {
-        oledText[1] = MSG_NO_SERVICES_FOUND;
-        writeOledArray(false, false, true, true);
+    if (globalValues->foundWitServersCount == 0) {
+        oledDisplay->oledText[1] = MSG_NO_SERVICES_FOUND;
+        oledDisplay->writeOledArray(false, false, true, true);
         // debug_println(oledText[1]);
-        delay(1000);
+        sleep_ms(1000);
         buildWitEntry();
-        dccexConnectionState = CONNECTION_STATE_ENTRY_REQUIRED;
+        globalValues->dccexConnectionState = CONNECTION_STATE_ENTRY_REQUIRED;
 
     } else {
         // debug_print(noOfWitServices);  debug_println(MSG_SERVICES_FOUND);
-        clearOledArray();
-        oledText[1] = MSG_SERVICES_FOUND;
+        oledDisplay->clearOledArray();
+        oledDisplay->oledText[1] = MSG_SERVICES_FOUND;
 
-        for (int i = 0; i < foundWitServersCount; ++i) {
+        for (int i = 0; i < globalValues->foundWitServersCount; ++i) {
             // Print details for each service found
             // debug_print("  "); debug_print(i); debug_print(": '"); debug_print(foundWitServersNames[i]);
             // debug_print("' ("); debug_print(foundWitServersIPs[i]); debug_print(":"); debug_print(foundWitServersPorts[i]); debug_println(")");
             if (i < 5) { // only have room for 5
-                std::string truncatedIp = ".." + foundWitServersIPs[i].substr(foundWitServersIPs[i].rfind("."));
-                oledText[i] = std::to_string(i) + ": " + truncatedIp + ":" + std::to_string(foundWitServersPorts[i]) + " " + foundWitServersNames[i];
+                std::string truncatedIp = ".." + globalValues->foundWitServersIPs[i].substr(globalValues->foundWitServersIPs[i].rfind("."));
+                oledDisplay->oledText[i] = std::to_string(i) + ": " + truncatedIp + ":" + std::to_string(globalValues->foundWitServersPorts[i]) + " " + globalValues->foundWitServersNames[i];
             }
         }
 
-        if (foundWitServersCount > 0) {
+        if (globalValues->foundWitServersCount > 0) {
             // oledText[5] = menu_select_wit_service;
-            setMenuTextForOled(menu_select_wit_service);
+            oledDisplay->setMenuTextForOled(menu_select_wit_service);
         }
-        writeOledArray(false, false);
+        oledDisplay->writeOledArray(false, false);
 
-        if ((foundWitServersCount == 1) && (autoConnectToFirstWiThrottleServer)) {
+        if ((globalValues->foundWitServersCount == 1) && (globalValues->autoConnectToFirstWiThrottleServer)) {
             // debug_println("WiT Selection - only 1");
-            selectedWitServerIP = foundWitServersIPs[0];
-            selectedWitServerPort = foundWitServersPorts[0];
-            selectedWitServerName = foundWitServersNames[0];
-            dccexConnectionState = CONNECTION_STATE_SELECTED;
+            globalValues->selectedWitServerIP = globalValues->foundWitServersIPs[0];
+            globalValues->selectedWitServerPort = globalValues->foundWitServersPorts[0];
+            globalValues->selectedWitServerName = globalValues->foundWitServersNames[0];
+            globalValues->dccexConnectionState = CONNECTION_STATE_SELECTED;
         } else {
             // debug_println("WiT Selection required");
-            dccexConnectionState = CONNECTION_STATE_SELECTION_REQUIRED;
+            globalValues->dccexConnectionState = CONNECTION_STATE_SELECTION_REQUIRED;
         }
     }
 }
@@ -123,139 +249,188 @@ void WitServer::browseWitService() {
 void WitServer::selectWitServer(int selection) {
     // debug_print("selectWitServer() "); debug_println(selection);
 
-    if ((selection >= 0) && (selection < foundWitServersCount)) {
-        dccexConnectionState = CONNECTION_STATE_SELECTED;
-        selectedWitServerIP = foundWitServersIPs[selection];
-        selectedWitServerPort = foundWitServersPorts[selection];
-        selectedWitServerName = foundWitServersNames[selection];
-        keypadUseType = KEYPAD_USE_OPERATION;
+    if ((selection >= 0) && (selection < globalValues->foundWitServersCount)) {
+        globalValues->dccexConnectionState = CONNECTION_STATE_SELECTED;
+        globalValues->selectedWitServerIP = globalValues->foundWitServersIPs[selection];
+        globalValues->selectedWitServerPort = globalValues->foundWitServersPorts[selection];
+        globalValues->selectedWitServerName = globalValues->foundWitServersNames[selection];
+        globalValues->keypadUseType = KEYPAD_USE_OPERATION;
     }
+}
+
+static err_t connect_callback(void *arg, struct tcp_pcb *tpcb, err_t err) {
+    if (err == ERR_OK) {
+        printf("Connected to server\n");
+        TCPSocketStream *stream = new TCPSocketStream(tpcb);
+        // Now you can use the stream to read/write data
+
+        debug_print("Connected to server: ");
+        debug_println(globalValues->selectedWitServerIP.c_str());
+        debug_println(std::to_string(globalValues->selectedWitServerPort).c_str());
+
+        dccExProtocol->connect(stream);
+        debug_println("WiThrottle connected");
+
+        globalValues->dccexConnectionState = CONNECTION_STATE_CONNECTED;
+        witServer->setLastServerResponseTime(true);
+
+        oledDisplay->oledText[3] = MSG_CONNECTED;
+        if (!hashShowsFunctionsInsteadOfKeyDefs) {
+            // oledText[5] = menu_menu;
+            oledDisplay->setMenuTextForOled(menu_menu);
+        } else {
+            // oledText[5] = menu_menu_hash_is_functions;
+            oledDisplay->setMenuTextForOled(menu_menu_hash_is_functions);
+        }
+        oledDisplay->writeOledArray(false, false, true, true);
+        oledDisplay->writeOledBattery();
+        globalValues->keypadUseType = KEYPAD_USE_OPERATION;
+
+        // dccexProtocol.connect(stream);
+        // dccexProtocol.enableHeartbeat();
+        // dccexProtocol.requestServerVersion();
+        // dccexProtocolConnected  = true;
+    } else {
+        printf("Connection failed\n");
+        
+        debug_println(MSG_CONNECTION_FAILED);
+        oledDisplay->oledText[3] = MSG_CONNECTION_FAILED;
+        oledDisplay->writeOledArray(false, false, true, true);
+        sleep_ms(5000);
+
+        globalValues->dccexConnectionState = CONNECTION_STATE_DISCONNECTED;
+        globalValues->ssidConnectionState = CONNECTION_STATE_DISCONNECTED;
+        globalValues->ssidSelectionSource = SSID_CONNECTION_SOURCE_LIST;
+        globalValues->witServerIpAndPortChanged = true;
+
+        tcp_close(tpcb);
+    }
+    return err;
+}
+
+// Function to initiate a connection to the server
+void connect_to_server(const char *server_ip, uint16_t port) {
+    ip_addr_t server_addr;
+    if (!ipaddr_aton(server_ip, &server_addr)) {
+        printf("Invalid IP address\n");
+        return;
+    }
+
+    struct tcp_pcb *pcb = tcp_new();
+    if (pcb == nullptr) {
+        printf("Failed to create PCB\n");
+        return;
+    }
+
+    tcp_connect(pcb, &server_addr, port, connect_callback);
 }
 
 void WitServer::connectWitServer() {
     // Pass the delegate instance to dccexProtocol
-    dccexProtocol.setDelegate(&myDelegate);
+    dccExProtocol->setLogStream(&printStream);
+    dccExProtocol->setDelegate(&myDelegate);
 
     debug_println("Connecting to the server...");
-    clearOledArray();
-    setAppnameForOled();
-    oledText[1] = "        " + selectedWitServerIP + " : " + std::to_string(selectedWitServerPort);
-    oledText[2] = "        " + selectedWitServerName;
-    oledText[3] = MSG_CONNECTING;
-    writeOledArray(false, false, true, true);
+    oledDisplay->clearOledArray();
+    oledDisplay->setAppnameForOled();
+    oledDisplay->oledText[1] = "        " + globalValues->selectedWitServerIP + " : " + std::to_string(globalValues->selectedWitServerPort);
+    oledDisplay->oledText[2] = "        " + globalValues->selectedWitServerName;
+    oledDisplay->oledText[3] = MSG_CONNECTING;
+    oledDisplay->writeOledArray(false, false, true, true);
 
-    if (!client.connect(selectedWitServerIP, selectedWitServerPort)) {
-        debug_println(MSG_CONNECTION_FAILED);
-        oledText[3] = MSG_CONNECTION_FAILED;
-        writeOledArray(false, false, true, true);
-        delay(5000);
-
-        dccexConnectionState = CONNECTION_STATE_DISCONNECTED;
-        ssidConnectionState = CONNECTION_STATE_DISCONNECTED;
-        ssidSelectionSource = SSID_CONNECTION_SOURCE_LIST;
-        witServerIpAndPortChanged = true;
-
-    } else {
-        debug_print("Connected to server: ");
-        debug_println(selectedWitServerIP);
-        debug_println(selectedWitServerPort);
-
-        // Pass the communication to WiThrottle
-        #if DCCEXPROTOCOL_DEBUG == 0
-        dccexProtocol.setLogStream(&Serial);
-        #endif
-        dccexProtocol.connect(&client);
-        debug_println("WiThrottle connected");
-
-        dccexConnectionState = CONNECTION_STATE_CONNECTED;
-        setLastServerResponseTime(true);
-
-        oledText[3] = MSG_CONNECTED;
-        if (!hashShowsFunctionsInsteadOfKeyDefs) {
-            // oledText[5] = menu_menu;
-            setMenuTextForOled(menu_menu);
-        } else {
-            // oledText[5] = menu_menu_hash_is_functions;
-            setMenuTextForOled(menu_menu_hash_is_functions);
-        }
-        writeOledArray(false, false, true, true);
-        writeOledBattery();
-        u8g2.sendBuffer();
-
-        keypadUseType = KEYPAD_USE_OPERATION;
-    }
+    connect_to_server(globalValues->selectedWitServerIP.c_str(), globalValues->selectedWitServerPort);
 }
 
 void WitServer::enterWitServer() {
-    keypadUseType = KEYPAD_USE_ENTER_WITHROTTLE_SERVER;
-    if (witServerIpAndPortChanged) { // don't refresh the screen if nothing has changed
+    globalValues->keypadUseType = KEYPAD_USE_ENTER_WITHROTTLE_SERVER;
+    if (globalValues->witServerIpAndPortChanged) { // don't refresh the screen if nothing has changed
         debug_println("enterWitServer()");
-        clearOledArray();
-        setAppnameForOled();
-        oledText[1] = MSG_NO_SERVICES_FOUND_ENTRY_REQUIRED;
-        oledText[3] = witServerIpAndPortConstructed;
+        oledDisplay->clearOledArray();
+        oledDisplay->setAppnameForOled();
+        oledDisplay->oledText[1] = MSG_NO_SERVICES_FOUND_ENTRY_REQUIRED;
+        oledDisplay->oledText[3] = globalValues->witServerIpAndPortConstructed;
         // oledText[5] = menu_select_wit_entry;
-        setMenuTextForOled(menu_select_wit_entry);
-        writeOledArray(false, false, true, true);
-        witServerIpAndPortChanged = false;
+        oledDisplay->setMenuTextForOled(menu_select_wit_entry);
+        oledDisplay->writeOledArray(false, false, true, true);
+        globalValues->witServerIpAndPortChanged = false;
     }
 }
 
 void WitServer::disconnectWitServer() {
     debug_println("disconnectWitServer()");
-    for (int i = 0; i < maxThrottles; i++) {
-        releaseAllLocos(i);
+    for (int i = 0; i < throttles->maxThrottles; i++) {
+        throttles->releaseAllLocos(i);
     }
-    dccexProtocol.disconnect();
+    dccExProtocol->disconnect();
     debug_println("Disconnected from wiThrottle server\n");
-    clearOledArray();
-    oledText[0] = MSG_DISCONNECTED;
-    writeOledArray(false, false, true, true);
-    dccexConnectionState = CONNECTION_STATE_DISCONNECTED;
-    witServerIpAndPortChanged = true;
+    oledDisplay->clearOledArray();
+    oledDisplay->oledText[0] = MSG_DISCONNECTED;
+    oledDisplay->writeOledArray(false, false, true, true);
+    globalValues->dccexConnectionState = CONNECTION_STATE_DISCONNECTED;
+    globalValues->witServerIpAndPortChanged = true;
 }
 
 void WitServer::witEntryAddChar(char key) {
-    if (witServerIpAndPortEntered.length() < 17) {
-        witServerIpAndPortEntered += key;
+    if (globalValues->witServerIpAndPortEntered.length() < 17) {
+        globalValues->witServerIpAndPortEntered += key;
         // debug_print("wit entered: ");
-        // debug_println(witServerIpAndPortEntered);
+        // debug_println(globalValues->witServerIpAndPortEntered);
         buildWitEntry();
-        witServerIpAndPortChanged = true;
+        globalValues->witServerIpAndPortChanged = true;
     }
 }
 
 void WitServer::witEntryDeleteChar(char key) {
-    if (witServerIpAndPortEntered.length() > 0) {
-        witServerIpAndPortEntered = witServerIpAndPortEntered.substr(0, witServerIpAndPortEntered.length() - 1);
+    if (globalValues->witServerIpAndPortEntered.length() > 0) {
+        globalValues->witServerIpAndPortEntered = globalValues->witServerIpAndPortEntered.substr(0, globalValues->witServerIpAndPortEntered.length() - 1);
         // debug_print("wit deleted: ");
-        // debug_println(witServerIpAndPortEntered);
+        // debug_println(globalValues->witServerIpAndPortEntered);
         buildWitEntry();
-        witServerIpAndPortChanged = true;
+        globalValues->witServerIpAndPortChanged = true;
     }
 }
 
 void WitServer::buildWitEntry() {
     debug_println("buildWitEntry()");
-    witServerIpAndPortConstructed = "";
-    for (size_t i = 0; i < witServerIpAndPortEntered.length(); i++) {
+    globalValues->witServerIpAndPortConstructed = "";
+    for (size_t i = 0; i < globalValues->witServerIpAndPortEntered.length(); i++) {
         if ((i == 3) || (i == 6) || (i == 9)) {
-            witServerIpAndPortConstructed += ".";
+            globalValues->witServerIpAndPortConstructed += ".";
         } else if (i == 12) {
-            witServerIpAndPortConstructed += ":";
+            globalValues->witServerIpAndPortConstructed += ":";
         }
-        witServerIpAndPortConstructed += witServerIpAndPortEntered.substr(i, 1);
+        globalValues->witServerIpAndPortConstructed += globalValues->witServerIpAndPortEntered.substr(i, 1);
     }
     debug_print("wit Constructed: ");
-    debug_println(witServerIpAndPortConstructed);
-    if (witServerIpAndPortEntered.length() < 17) {
-        witServerIpAndPortConstructed += witServerIpAndPortEntryMask.substr(witServerIpAndPortConstructed.length());
+    debug_println(globalValues->witServerIpAndPortConstructed.c_str());
+    if (globalValues->witServerIpAndPortEntered.length() < 17) {
+        globalValues->witServerIpAndPortConstructed += witServerIpAndPortEntryMask.substr(globalValues->witServerIpAndPortConstructed.length());
     }
     debug_print("wit Constructed: ");
-    debug_println(witServerIpAndPortConstructed);
+    debug_println(globalValues->witServerIpAndPortConstructed.c_str());
 
-    if (witServerIpAndPortEntered.length() == 17) {
-        selectedWitServerIP = witServerIpAndPortConstructed.substr(0, 15);
-        selectedWitServerPort = std::stoi(witServerIpAndPortConstructed.substr(16));
+    if (globalValues->witServerIpAndPortEntered.length() == 17) {
+        globalValues->selectedWitServerIP = globalValues->witServerIpAndPortConstructed.substr(0, 15);
+        globalValues->selectedWitServerPort = std::stoi(globalValues->witServerIpAndPortConstructed.substr(16));
     }
+}
+
+void WitServer::setLastServerResponseTime(bool force) {
+  // debug_print("setLastServerResponseTime "); debug_println((force) ? "True": "False");
+  // debug_print("lastServerResponseTime "); debug_print(lastServerResponseTime);
+  // debug_print("  millis "); debug_println(millis() / 1000);
+
+  globalValues->lastServerResponseTime = dccExProtocol->getLastServerResponseTime() / 1000;
+  if ( (globalValues->lastServerResponseTime==0) || (force) ) {
+    globalValues->lastServerResponseTime = millis() /1000;
+    globalValues->lastHeartBeatSentTime = millis() /1000;
+  }
+  // debug_print("setLastServerResponseTime "); debug_println(lastServerResponseTime);
+}
+
+void WitServer::checkForShutdownOnNoResponse() {
+  if (pimoroni::millis()-globalValues->startWaitForSelection > 240000) {  // 4 minutes
+      debug_println("Waited too long for a selection. Shutting down");
+    //   deepSleepStart(SLEEP_REASON_INACTIVITY);
+  }
 }

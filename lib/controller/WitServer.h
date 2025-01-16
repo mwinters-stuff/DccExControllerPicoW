@@ -3,15 +3,16 @@
 
 #include <vector>
 #include <string>
+#include <DCCEXProtocol.h>
 
-class WitServer {
+#include "Base.h"
+
+class WitServer : public Base {
 public:
-  static WitServer &getInstance() {
-    static WitServer instance;
-    return instance;
-  }
   
-    void witServiceLoop();
+  void setup() override;
+  void loop() override;
+
     void browseWitService();
     void selectWitServer(int selection);
     void connectWitServer();
@@ -20,15 +21,12 @@ public:
     void witEntryAddChar(char key);
     void witEntryDeleteChar(char key);
     void buildWitEntry();
-
-
-
+    void setLastServerResponseTime(bool force);
+    void checkForShutdownOnNoResponse();
 private:
+  std::string witServerIpAndPortEntryMask = "###.###.###.###:#####";
 
-      WitServer() = default;
-  ~WitServer() = default;
-  WitServer(const WitServer &) = delete;
-  WitServer &operator=(const WitServer &) = delete;
+
 };
 
 #endif // WITSERVER_H

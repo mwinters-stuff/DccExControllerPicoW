@@ -1,6 +1,8 @@
 #include "WiFiManager.h"
 
-
+void WiFiManager::setup(){
+    
+}
 
 void WiFiManager::browseSsids() {
     // int n = WiFi.scanNetworks();

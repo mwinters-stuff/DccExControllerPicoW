@@ -2,49 +2,40 @@
 #ifndef DCCEXCONTROLLER_H
 #define DCCEXCONTROLLER_H
 
+#include <vector>
+#include <memory>
+#include <string>
+#include <DCCEXLoco.h>
 
-#include "Throttle.h"
+#include "static.h"
+#include "Base.h"
 
-class DccExController {
+class DccExController: public Base {
 public:
+  void setup() override;
+  void loop() override;
 
-    static DccExController &getInstance() {
-        static DccExController instance;
-        return instance;
-    }
+  void selectRoster(int selection);
+  void selectTurnoutList(int selection, bool state);
+  void selectRouteList(int selection);
+  void selectFunctionList(int selection);
+  void selectEditConsistList(int selection);
 
+  void toggleHeartbeatCheck();
+  void changeNumberOfThrottles(bool increase);
 
-    void setup();
-    void loop();
+  void powerToggle();
+  void powerOn();
+  void powerOff();
 
-    void selectRoster(int index);
-    void selectTurnoutList(int index, bool state);
-    void selectRouteList(int index);
-    void selectFunctionList(int index);
-    void selectEditConsistList(int index);
+  void _loadRoster();
+  void _loadTurnoutList();
+  void _loadRouteList();
+  void _processLocoUpdate(DCCExController::Loco* loco);
 
-    void toggleHeartbeatCheck();
-    void changeNumberOfThrottles(bool increase);
-
-    void powerToggle();
-    void powerOn();
-    void powerOff();
-
-    void _loadRoster();
-    void _loadTurnoutList();
-    void _loadRouteList();
-
-    
-    void deepSleepStart();
-    void deepSleepStart(int);
-
-    char getMultiThrottleChar(int);
-    int getMultiThrottleIndex(char);
+  char getMultiThrottleChar(int);
+  int getMultiThrottleIndex(char);
 private:
-    DccExController() = default;
-    ~DccExController() = default;
-    DccExController(const DccExController &) = delete;
-    DccExController &operator=(const DccExController &) = delete;
 };
 
 #endif // DCCEXCONTROLLER_H

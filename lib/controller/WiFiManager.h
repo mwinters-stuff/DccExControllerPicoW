@@ -3,40 +3,42 @@
 #define WIFIMANAGER_H
 
 #include <string>
+#include <memory>
+#include "Base.h"
 
-class WiFiManager {
+class WiFiManager: public Base {
 public:
-    
-      static WiFiManager &getInstance() {
-    static WiFiManager instance;
+  static std::shared_ptr<WiFiManager> getInstance() {
+    static std::shared_ptr<WiFiManager> instance = std::make_shared<WiFiManager>();
     return instance;
   }
 
-    void browseSsids();
-    void connectSsid(const std::string& ssid, const std::string& password);
-    void showListOfSsids();
-    void enterSsidPassword();
-    void selectSsid(int selection);
-    void requestHeartbeat();
+  void setup() override;
+  void loop() override{};
 
-    void ssidPasswordAddChar(char key);
-    void ssidPasswordDeleteChar(char key);
-    void getSsidPasswordAndWitIpForFound();
-    void selectSsidFromFound(int selection);
-    void enterWitServer();
-    void disconnectWitServer();
+  void browseSsids();
+  void connectSsid(const std::string &ssid, const std::string &password);
+  void showListOfSsids();
+  void enterSsidPassword();
+  void selectSsid(int selection);
+  void requestHeartbeat();
 
-private:
-    // String selectedSsid;
-    // String selectedSsidPassword;
-    // int ssidConnectionState;
-    // String foundSsids[10]; // Adjust size as needed
-    // int foundSsidsCount;
+  void ssidPasswordAddChar(char key);
+  void ssidPasswordDeleteChar(char key);
+  void getSsidPasswordAndWitIpForFound();
+  void selectSsidFromFound(int selection);
+  void enterWitServer();
+  void disconnectWitServer();
 
-    
-
-      WiFiManager() = default;
   ~WiFiManager() = default;
+  WiFiManager() = default;
+private:
+  // String selectedSsid;
+  // String selectedSsidPassword;
+  // int ssidConnectionState;
+  // String foundSsids[10]; // Adjust size as needed
+  // int foundSsidsCount;
+
   WiFiManager(const WiFiManager &) = delete;
   WiFiManager &operator=(const WiFiManager &) = delete;
 };
